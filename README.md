@@ -1,13 +1,16 @@
 # pptxgen
 
-A **code-first presentation engine** on Next.js. Slides are React components
-styled with Tailwind — and instead of any export pipeline, the app ships its
-own presenter (fullscreen mode, speaker console, reveal steps).
+A **code-first presentation platform**. Users log in, create decks in the
+browser through a code-editor interface, author slides as React components
+in a Next.js-style project structure — and present from the same app.
+No export pipeline, ever.
 
 > Working name — despite the folder, this project never generates a `.pptx`.
 
-**Status:** Phases 0–2 complete (foundation, design system, slide engine).
-Full scope, architecture, and roadmap live in **[PLAN.md](./PLAN.md)**.
+**Status:** engine complete (Phases 0–2: design system + slide engine
+core). The platform pivot is locked in — auth, dashboard, browser editor,
+and the sandboxed deck runtime are on the roadmap in
+**[PLAN.md](./PLAN.md)**.
 
 ## Quick start
 
@@ -19,30 +22,17 @@ npm run dev
 | Route | Purpose | Status |
 | --- | --- | --- |
 | `/style` | Design system specimen — tokens, primitives, all 8 fonts | ✅ |
-| `/` | Deck overview — live thumbnails, click any slide to preview | ✅ |
-| `/present` | Presenter shell — scaled canvas, on-screen nav (keyboard/fullscreen next phase) | ✅ stub |
-| `/speaker` | Speaker console (notes, timer, sync) | Phase 6 |
+| `/` | Local deck overview (transitional → landing/dashboard, Phase 3) | ✅ |
+| `/present` | Local presenter stub (transitional → `/decks/[id]/present`) | ✅ stub |
+| `/login` · `/decks` · `/decks/[id]/edit` · `/decks/[id]/present` | Platform surfaces | Phase 3+ |
 
-## Design language
+## The model
 
-Always-dark, monochrome **studio** chrome (shadcn/ui on Base UI — buttons,
-dialogs, tooltips, keys — all from one token set), with a separate
-**deck palette** reserved for slide content. The deck's typography is
-config-driven: 8 curated families (Geist, Inter, Space Grotesk, Source
-Serif 4, Playfair Display, Fraunces, JetBrains Mono, Geist Mono) mapped to
-semantic slots in `lib/deck.config.ts` — swap a deck's entire type system
-in one line. See it all at **`/style`**.
+Decks are authored like Next.js apps: `deck/layout.tsx` wraps every slide,
+one `NN-name/page.tsx` per slide, `deck/components/` for reusable parts.
+On the platform this structure lives in the database and the browser
+editor's file tree — compiled and rendered by a sandboxed in-browser
+runtime (transpile → virtual modules → iframe), with the studio design
+system providing every piece of chrome.
 
-## Authoring (live now)
-
-Slides live in `slides/` — one file per slide, plain React + Tailwind.
-The demo deck (`01-title.tsx`, `02-why-code.tsx`, `03-metrics.tsx`)
-dogfoods the app: it pitches the engine it runs on. Order is defined by
-the manifest in `slides/index.ts`. The engine component library
-(`TwoColumn`, `Bullets`, `Stat`, …) lands in Phase 5.
-
-**Planned (Phase 4):** authoring moves into an App Router-shaped `deck/`
-folder — `deck/layout.tsx` wrapping every slide (like a root layout),
-`deck/components/` for reusable deck-local components, and one
-`NN-name/page.tsx` per slide. If you know Next.js, you already know how
-to write a deck. Details in [PLAN.md](./PLAN.md).
+Details, architecture, and the phase-by-phase roadmap: **[PLAN.md](./PLAN.md)**.
