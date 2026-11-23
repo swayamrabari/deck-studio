@@ -38,6 +38,11 @@ in one line. See it all at **`/style`**.
 Slides live in `slides/` — one file per slide, plain React + Tailwind.
 The demo deck (`01-title.tsx`, `02-why-code.tsx`, `03-metrics.tsx`)
 dogfoods the app: it pitches the engine it runs on. Order is defined by
-the manifest in `slides/index.ts`. The full component library
-(`Slide`, `TitleSlide`, `TwoColumn`, `Bullets`, `Stat`, …) lands in
-Phase 4 — see [PLAN.md](./PLAN.md) for the complete model.
+the manifest in `slides/index.ts`. The engine component library
+(`TwoColumn`, `Bullets`, `Stat`, …) lands in Phase 5.
+
+**Planned (Phase 4):** authoring moves into an App Router-shaped `deck/`
+folder — `deck/layout.tsx` wrapping every slide (like a root layout),
+`deck/components/` for reusable deck-local components, and one
+`NN-name/page.tsx` per slide. If you know Next.js, you already know how
+to write a deck. Details in [PLAN.md](./PLAN.md).
