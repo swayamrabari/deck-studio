@@ -64,7 +64,9 @@ export function DeckPreview({
   useEffect(() => {
     if (!ready) return;
     const timer = setTimeout(
-      () => send({ type: "deck:load", files, index: slideIndex }),
+      () =>
+        // Preview shows the finished slide: a huge step reveals all fragments.
+        send({ type: "deck:load", files, index: slideIndex, step: 999 }),
       400
     );
     return () => clearTimeout(timer);

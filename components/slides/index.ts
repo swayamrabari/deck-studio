@@ -22,4 +22,5 @@ export {
   Table,
   type Bullet,
 } from "./content";
+export { Appear, SlideStepContext, SlideStepProvider } from "./step";
 export { CodeBlock } from "./code-block";

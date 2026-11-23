@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { SlideCanvas } from "@/components/deck/slide-canvas";
+import { SlideStepProvider } from "@/components/slides";
 import { compileDeck, type CompiledDeck } from "@/lib/runtime-compiler";
 import type {
   RuntimeInMessage,
@@ -61,9 +62,11 @@ class SlideErrorBoundary extends Component<
 export default function RuntimeFramePage() {
   const [deck, setDeck] = useState<CompiledDeck | null>(null);
   const [index, setIndex] = useState(0);
+  const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const filesJsonRef = useRef<string>("");
+  const stepCountRef = useRef(0);
 
   // Tailwind's browser build touches `document` — client-only import.
   useEffect(() => {
@@ -88,6 +91,11 @@ export default function RuntimeFramePage() {
 
       if (message.type === "deck:index") {
         setIndex(Math.max(message.index, 0));
+        setStep(Math.max(message.step ?? 0, 0));
+        return;
+      }
+      if (message.type === "deck:step") {
+        setStep(Math.max(message.step, 0));
         return;
       }
       if (message.type !== "deck:load") return;
@@ -95,6 +103,7 @@ export default function RuntimeFramePage() {
       const filesJson = JSON.stringify(message.files);
       if (filesJson === filesJsonRef.current) {
         setIndex(Math.max(message.index, 0));
+        setStep(Math.max(message.step ?? 0, 0));
         return;
       }
       filesJsonRef.current = filesJson;
@@ -107,6 +116,7 @@ export default function RuntimeFramePage() {
         setIndex(
           Math.min(Math.max(message.index, 0), compiled.slides.length - 1)
         );
+        setStep(Math.max(message.step ?? 0, 0));
         post({ type: "deck:ready", slideCount: compiled.slides.length });
       } catch (cause) {
         const messageText =
@@ -124,6 +134,20 @@ export default function RuntimeFramePage() {
     );
     return () => window.removeEventListener("message", onMessage);
   }, []);
+
+  // Report the current slide's fragment count once it has rendered.
+  const lastStepsSignatureRef = useRef<string>("");
+  useEffect(() => {
+    if (!deck) return;
+    const totalSteps = stepCountRef.current;
+    const signature = `${index}:${totalSteps}`;
+    if (lastStepsSignatureRef.current === signature) return;
+    lastStepsSignatureRef.current = signature;
+    window.parent.postMessage(
+      { type: "deck:steps", index, totalSteps } satisfies RuntimeOutMessage,
+      window.location.origin
+    );
+  }, [deck, index, version, step]);
 
   const current = deck?.slides[index] ?? null;
   const Layout = deck?.Layout ?? null;
@@ -144,19 +168,21 @@ export default function RuntimeFramePage() {
               );
             }}
           >
-            {Layout ? (
-              <Layout
-                index={index}
-                total={deck.slides.length}
-                meta={current?.meta ?? {}}
-              >
-                <Slide />
-              </Layout>
-            ) : (
-              <div className="h-full w-full bg-deck-bg p-20 text-deck-fg">
-                <Slide />
-              </div>
-            )}
+            <SlideStepProvider step={step} countRef={stepCountRef}>
+              {Layout ? (
+                <Layout
+                  index={index}
+                  total={deck.slides.length}
+                  meta={current?.meta ?? {}}
+                >
+                  <Slide />
+                </Layout>
+              ) : (
+                <div className="h-full w-full bg-deck-bg p-20 text-deck-fg">
+                  <Slide />
+                </div>
+              )}
+            </SlideStepProvider>
           </SlideErrorBoundary>
         ) : null}
       </SlideCanvas>

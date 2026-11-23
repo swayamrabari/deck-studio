@@ -33,9 +33,12 @@ export default async function DeckPresentPage({
   );
 
   const query = await searchParams;
-  const raw = Array.isArray(query.s) ? query.s[0] : query.s;
-  const slide = Number.parseInt(raw ?? "1", 10);
+  const rawSlide = Array.isArray(query.s) ? query.s[0] : query.s;
+  const slide = Number.parseInt(rawSlide ?? "1", 10);
   const initialSlide = Math.max(0, (Number.isFinite(slide) ? slide : 1) - 1);
+  const rawStep = Array.isArray(query.st) ? query.st[0] : query.st;
+  const parsedStep = Number.parseInt(rawStep ?? "0", 10);
+  const initialStep = Math.max(0, Number.isFinite(parsedStep) ? parsedStep : 0);
 
   return (
     <DeckPresenter
@@ -43,6 +46,7 @@ export default async function DeckPresentPage({
       title={deck.title}
       files={initialFiles}
       initialSlide={initialSlide}
+      initialStep={initialStep}
     />
   );
 }

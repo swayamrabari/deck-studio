@@ -19,33 +19,53 @@ import type {
 
 /**
  * Hosted presenter: the runtime frame at full viewport, driven by host
- * state. Keyboard control, fullscreen, ?s= URL sync, progress bar, and a
- * cross-frame fade between slides.
+ * state. Keyboard control, fullscreen, ?s=&st= URL sync, progress bar,
+ * cross-frame fades, and step-aware navigation through `<Appear>`
+ * fragments.
  */
 export function DeckPresenter({
   deckId,
   title,
   files,
   initialSlide,
+  initialStep,
 }: {
   deckId: string;
   title: string;
   files: Record<string, string>;
   initialSlide: number;
+  initialStep: number;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const [slideCount, setSlideCount] = useState(0);
   const [index, setIndex] = useState(initialSlide);
+  const [step, setStep] = useState(initialStep);
+  const [totalSteps, setTotalSteps] = useState(0);
   const [fading, setFading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  /** Fragment counts discovered per slide (for backward navigation). */
+  const stepsBySlide = useRef(new Map<number, number>());
+
   const indexRef = useRef(index);
+  const stepRef = useRef(step);
+  const totalStepsRef = useRef(totalSteps);
+  const slideCountRef = useRef(slideCount);
   useEffect(() => {
     indexRef.current = index;
   }, [index]);
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+  useEffect(() => {
+    totalStepsRef.current = totalSteps;
+  }, [totalSteps]);
+  useEffect(() => {
+    slideCountRef.current = slideCount;
+  }, [slideCount]);
 
   const send = useCallback((message: RuntimeInMessage) => {
     frameRef.current?.contentWindow?.postMessage(
@@ -66,6 +86,13 @@ export function DeckPresenter({
       } else if (message.type === "deck:ready") {
         setError(null);
         setSlideCount(message.slideCount);
+        setIndex((previous) => Math.min(previous, message.slideCount - 1));
+      } else if (message.type === "deck:steps") {
+        stepsBySlide.current.set(message.index, message.totalSteps);
+        if (message.index === indexRef.current) {
+          setTotalSteps(message.totalSteps);
+          setStep((previous) => Math.min(previous, message.totalSteps));
+        }
       } else if (message.type === "deck:error") {
         setError(message.message);
       }
@@ -77,7 +104,12 @@ export function DeckPresenter({
   // Load the deck once the frame is listening.
   useEffect(() => {
     if (!ready) return;
-    send({ type: "deck:load", files, index: indexRef.current });
+    send({
+      type: "deck:load",
+      files,
+      index: indexRef.current,
+      step: stepRef.current,
+    });
   }, [ready, files, send]);
 
   // Handshake retry: the iframe may hydrate before this host does, so ping
@@ -94,31 +126,62 @@ export function DeckPresenter({
     };
   }, [ready, send]);
 
-  const syncUrl = useCallback((next: number) => {
+  // URL as the source of truth for deep links (?s=slide&st=step).
+  useEffect(() => {
+    if (slideCount === 0) return;
     const params = new URLSearchParams(window.location.search);
-    params.set("s", String(next + 1));
+    params.set("s", String(index + 1));
+    params.set("st", String(step));
     window.history.replaceState(null, "", `?${params.toString()}`);
-  }, []);
+  }, [index, step, slideCount]);
 
-  const goTo = useCallback(
-    (target: number) => {
-      if (fading) return;
-      const count = slideCount || 1;
-      const next = Math.min(Math.max(target, 0), count - 1);
-      if (next === indexRef.current) return;
+  const advanceStep = useCallback(
+    (next: number) => {
+      setStep(next);
+      send({ type: "deck:step", step: next });
+    },
+    [send]
+  );
 
-      // Fade out, swap the slide, fade back in.
+  const goToSlide = useCallback(
+    (next: number, startStep: number) => {
       setFading(true);
       window.setTimeout(() => {
         setIndex(next);
-        indexRef.current = next;
-        send({ type: "deck:index", index: next });
-        syncUrl(next);
+        setStep(startStep);
+        setTotalSteps(stepsBySlide.current.get(next) ?? 0);
+        send({ type: "deck:index", index: next, step: startStep });
         setFading(false);
       }, 140);
     },
-    [fading, slideCount, send, syncUrl]
+    [send]
   );
+
+  const goNext = useCallback(() => {
+    if (fading) return;
+    if (stepRef.current < totalStepsRef.current) {
+      advanceStep(stepRef.current + 1);
+      return;
+    }
+    if (indexRef.current < slideCountRef.current - 1) {
+      goToSlide(indexRef.current + 1, 0);
+    }
+  }, [fading, advanceStep, goToSlide]);
+
+  const goPrev = useCallback(() => {
+    if (fading) return;
+    if (stepRef.current > 0) {
+      advanceStep(stepRef.current - 1);
+      return;
+    }
+    if (indexRef.current > 0) {
+      // Going back lands on the previous slide fully revealed.
+      goToSlide(
+        indexRef.current - 1,
+        stepsBySlide.current.get(indexRef.current - 1) ?? 0
+      );
+    }
+  }, [fading, advanceStep, goToSlide]);
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -128,7 +191,7 @@ export function DeckPresenter({
         await rootRef.current?.requestFullscreen();
       }
     } catch {
-      // Fullscreen can be denied (permissions/iframes) — presentation still works.
+      // Fullscreen can be denied (permissions) — presentation still works.
     }
   }, []);
 
@@ -162,22 +225,23 @@ export function DeckPresenter({
 
       if (key === "ArrowRight" || key === "PageDown" || key === " ") {
         event.preventDefault();
-        goTo(indexRef.current + 1);
+        goNext();
       } else if (key === "ArrowLeft" || key === "PageUp") {
         event.preventDefault();
-        goTo(indexRef.current - 1);
+        goPrev();
       } else if (lower === "n") {
         event.preventDefault();
-        goTo(indexRef.current + 1);
+        goNext();
       } else if (lower === "p") {
         event.preventDefault();
-        goTo(indexRef.current - 1);
+        goPrev();
       } else if (key === "Home") {
         event.preventDefault();
-        goTo(0);
+        goToSlide(0, 0);
       } else if (key === "End") {
         event.preventDefault();
-        goTo(Number.MAX_SAFE_INTEGER);
+        const last = Math.max(slideCountRef.current - 1, 0);
+        goToSlide(last, stepsBySlide.current.get(last) ?? 0);
       } else if (lower === "f") {
         event.preventDefault();
         void toggleFullscreen();
@@ -193,7 +257,7 @@ export function DeckPresenter({
         event.preventDefault();
         const number = Number.parseInt(jumpBuffer, 10);
         jumpBuffer = "";
-        if (Number.isFinite(number) && number > 0) goTo(number - 1);
+        if (Number.isFinite(number) && number > 0) goToSlide(number - 1, 0);
       }
     }
 
@@ -202,10 +266,19 @@ export function DeckPresenter({
       window.removeEventListener("keydown", onKeyDown);
       if (jumpTimer) clearTimeout(jumpTimer);
     };
-  }, [goTo, toggleFullscreen]);
+  }, [goNext, goPrev, goToSlide, toggleFullscreen]);
 
   const progress =
-    slideCount > 0 ? ((Math.min(index, slideCount - 1) + 1) / slideCount) * 100 : 0;
+    slideCount > 0
+      ? ((index + (totalSteps > 0 ? step / totalSteps : 1)) / slideCount) * 100
+      : 0;
+
+  const counter =
+    slideCount > 0
+      ? `${String(index + 1).padStart(2, "0")} / ${String(slideCount).padStart(2, "0")}${
+          totalSteps > 0 ? ` · ${step}/${totalSteps}` : ""
+        }`
+      : "— / —";
 
   return (
     <div ref={rootRef} className="flex h-dvh w-full flex-col bg-black">
@@ -252,23 +325,24 @@ export function DeckPresenter({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Previous slide"
-            onClick={() => goTo(index - 1)}
-            disabled={slideCount === 0 || index <= 0}
+            aria-label="Previous step"
+            onClick={goPrev}
+            disabled={slideCount === 0 || (index === 0 && step === 0)}
           >
             <ChevronLeftIcon />
           </Button>
-          <span className="min-w-16 text-center font-ui-mono text-xs tabular-nums text-white/60">
-            {slideCount > 0
-              ? `${String(index + 1).padStart(2, "0")} / ${String(slideCount).padStart(2, "0")}`
-              : "— / —"}
+          <span className="min-w-20 text-center font-ui-mono text-xs tabular-nums text-white/60">
+            {counter}
           </span>
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Next slide"
-            onClick={() => goTo(index + 1)}
-            disabled={slideCount === 0 || index >= slideCount - 1}
+            aria-label="Next step"
+            onClick={goNext}
+            disabled={
+              slideCount === 0 ||
+              (index === slideCount - 1 && step >= totalSteps)
+            }
           >
             <ChevronRightIcon />
           </Button>

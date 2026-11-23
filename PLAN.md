@@ -351,7 +351,7 @@ folder operations.
 | 5 | **Deck runtime** — transpile, virtual modules, sandboxed frame, Tailwind browser: live preview goes end-to-end | ✅ done |
 | 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ✅ done |
 | 7 | **Engine library** — layouts + content primitives exported through the runtime module map (`@/components/slides`) | ✅ done |
-| 8 | **Reveal steps** — `<Appear>` fragments, step-aware nav in runtime + presenter | ⬜ |
+| 8 | **Reveal steps** — `<Appear>` fragments, step-aware nav in runtime + presenter | ✅ done |
 | 9 | **Speaker console** — notes, next-slide preview, timer, cross-window sync | ⬜ |
 | 10 | **Polish** — share links, template gallery, Playwright smoke test, authoring guide | ⬜ |
 | 11 | **Extras** — charts, Mermaid, KaTeX, media embeds | ⬜ |
@@ -461,6 +461,25 @@ folder operations.
   rendered every component (table DOM confirmed: 2 headers, 2 rows),
   zero console errors
 
+**Phase 8 — what exists**
+
+- `components/slides/step.tsx` — `SlideStepProvider` + `<Appear>`:
+  fragments register during render and receive a **stable, idempotent
+  index** (`useId` keyed — React's development double-render no longer
+  double-counts, a bug caught live as `0/10` instead of `0/5`)
+- Runtime: renders slides inside the provider; reports
+  `deck:steps { index, totalSteps }`; handles `deck:step` and step
+  fields on `deck:load` / `deck:index`; `Bullets reveal` wraps each
+  item in `<Appear>` for staggered lists
+- Presenter: **step-aware navigation** — `next` advances a fragment,
+  then the slide; `prev` rewinds fragments, and full-reveals the
+  previous slide when crossing backward; counter shows `04 / 04 · 2/5`;
+  progress interpolates within slides; `?s=&st=` URL state (deep links
+  restore exact fragment); editor preview always shows all fragments
+- Verified live: a 5-fragment slide stepped 0→1→5 with correct
+  visibility per fragment, URL sync, clamping at the end, deep links,
+  and backward stepping — zero console errors
+
 ---
 
 ## 8 · Out of scope
@@ -477,7 +496,7 @@ folder operations.
 
 ## 9 · Next step
 
-**Phase 8 — reveal steps:** the `<Appear>` fragment primitive — content
-that registers itself with the runtime, step-aware navigation in the
-presenter (`deck:step` messages), staggered bullets via the library, and
-`?s=&st=` URL state so builds can be deep-linked precisely.
+**Phase 9 — speaker console:** `/decks/[id]/presenter` — a second window
+showing current + next slide, speaker notes (`meta.notes`), and the
+elapsed timer, synchronized with the presenter via `BroadcastChannel`
+(presenter authoritative; console can send step/index commands back).

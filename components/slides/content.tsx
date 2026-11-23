@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { cn } from "cn";
+import { Appear } from "./step";
 
 /**
  * Engine content primitives — deck-token styled, ready to drop into any
@@ -13,10 +14,13 @@ export function Bullets({
   items,
   marker = "dot",
   size = "lg",
+  reveal = false,
 }: {
   items: Bullet[];
   marker?: "dot" | "number" | "dash";
   size?: "md" | "lg";
+  /** Reveal bullets one by one (each becomes an `<Appear>` fragment). */
+  reveal?: boolean;
 }) {
   const textSize = size === "lg" ? "text-2xl" : "text-xl";
   return (
@@ -24,8 +28,8 @@ export function Bullets({
       {items.map((item, index) => {
         const text = typeof item === "string" ? item : item.text;
         const detail = typeof item === "string" ? undefined : item.detail;
-        return (
-          <li key={index} className="flex items-start gap-4">
+        const content = (
+          <div className="flex items-start gap-4">
             {marker === "number" ? (
               <span className="w-8 shrink-0 pt-1.5 font-mono text-sm text-deck-accent">
                 {String(index + 1).padStart(2, "0")}
@@ -45,6 +49,11 @@ export function Bullets({
                 </p>
               ) : null}
             </div>
+          </div>
+        );
+        return (
+          <li key={index}>
+            {reveal ? <Appear>{content}</Appear> : content}
           </li>
         );
       })}
