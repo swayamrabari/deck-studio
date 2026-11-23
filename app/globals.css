@@ -141,19 +141,12 @@
   display: none;
 }
 
+/* CodeMirror manages its own scroller (caret keep-in-view), so it can't be
+   hosted inside ScrollArea — hide its bar entirely. Wheel + keyboard
+   scrolling still work; no native scrollbar is ever shown. */
 .cm-scroller {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-width: none;
 }
 .cm-scroller::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.cm-scroller::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 999px;
-}
-.cm-scroller::-webkit-scrollbar-track,
-.cm-scroller::-webkit-scrollbar-corner {
-  background: transparent;
+  display: none;
 }

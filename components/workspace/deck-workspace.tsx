@@ -414,8 +414,10 @@ export function DeckWorkspace({
         <section className="flex min-w-0 flex-1 flex-col">
           {openPaths.length > 0 ? (
             <>
-              <div className="flex h-10 shrink-0 items-stretch overflow-x-auto border-b border-border">
-                {openPaths.map((path) => {
+              <div className="h-10 shrink-0 border-b border-border">
+                <ScrollArea orientation="horizontal" className="h-full">
+                  <div className="flex h-full w-max min-w-full items-stretch">
+                    {openPaths.map((path) => {
                   const isActive = path === activePath;
                   const isDirty = files[path] !== savedFiles[path];
                   return (
@@ -453,7 +455,9 @@ export function DeckWorkspace({
                       </button>
                     </div>
                   );
-                })}
+                    })}
+                  </div>
+                </ScrollArea>
               </div>
               <div className="min-h-0 flex-1">
                 {activePath && files[activePath] !== undefined ? (
