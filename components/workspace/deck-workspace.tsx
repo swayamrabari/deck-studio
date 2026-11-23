@@ -34,7 +34,8 @@ import { DeckPreview } from "./deck-preview";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileTree } from "./file-tree";
 
-const NEW_SLIDE_CONTENT = `import type { SlideMeta } from "@/lib/types";
+const NEW_SLIDE_CONTENT = `import { Statement } from "@/components/slides";
+import type { SlideMeta } from "@/lib/types";
 
 export const meta: SlideMeta = {
   title: "New slide",
@@ -42,16 +43,7 @@ export const meta: SlideMeta = {
 };
 
 export default function NewSlide() {
-  return (
-    <div className="flex flex-col justify-center">
-      <h2 className="font-display text-6xl font-medium tracking-tight">
-        New slide
-      </h2>
-      <p className="mt-6 max-w-2xl font-body text-xl text-deck-muted">
-        Write your slide like a React component.
-      </p>
-    </div>
-  );
+  return <Statement>New slide — make it yours.</Statement>;
 }
 `;
 

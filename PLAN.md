@@ -350,7 +350,7 @@ folder operations.
 | 4 | **Editor workspace** — file tree CRUD, shadcn Tabs + CodeMirror (studio theme), autosave; preview static until Phase 5 | ✅ done |
 | 5 | **Deck runtime** — transpile, virtual modules, sandboxed frame, Tailwind browser: live preview goes end-to-end | ✅ done |
 | 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ✅ done |
-| 7 | **Engine library** — layouts + content primitives exported through the runtime module map (`@/components/slides`) | ⬜ |
+| 7 | **Engine library** — layouts + content primitives exported through the runtime module map (`@/components/slides`) | ✅ done |
 | 8 | **Reveal steps** — `<Appear>` fragments, step-aware nav in runtime + presenter | ⬜ |
 | 9 | **Speaker console** — notes, next-slide preview, timer, cross-window sync | ⬜ |
 | 10 | **Polish** — share links, template gallery, Playwright smoke test, authoring guide | ⬜ |
@@ -441,6 +441,26 @@ folder operations.
   clamps at the end; Home → 01; `3`+Enter jumps; `?s=3` deep link works;
   zero console errors
 
+**Phase 7 — what exists**
+
+- `components/slides/` — the engine library, importable in any deck page
+  as `@/components/slides` (wired into the runtime module map):
+  - Layouts: `TitleSlide`, `SectionSlide`, `Statement`, `TwoColumn`
+    (ratio presets), `Grid` (2/3/4 cols), `FullBleed` (image + gradient)
+  - Content: `Bullets` (dot/number/dash markers, optional details),
+    `Quote`, `Stat`, `StatRow`, `Table` (mono headers, tabular numbers),
+    `FitImage`, and `CodeBlock` — prism-react-renderer with the deck's
+    restrained three-hue palette, optional title, line numbers, and line
+    highlighting
+  - All token-driven (`deck-*` colors, `font-display/body/mono`); engine
+    classes compile in the app, and Tailwind's browser build covers any
+    extra utilities inside the frame
+- "New slide" stub now imports `Statement`, teaching the library from
+  the first click
+- Verified live through the runtime: a slide importing all primitives
+  rendered every component (table DOM confirmed: 2 headers, 2 rows),
+  zero console errors
+
 ---
 
 ## 8 · Out of scope
@@ -457,10 +477,7 @@ folder operations.
 
 ## 9 · Next step
 
-**Phase 7 — engine library:** ship the reusable deck library as a
-module map entry (`@/components/slides`): layout helpers (`TitleSlide`,
-`SectionSlide`, `Statement`, `TwoColumn`, `Grid`, `FullBleed`) and
-content primitives (`Bullets`, `CodeBlock` with syntax highlighting,
-`Quote`, `Stat`/`KpiRow`, `Table`, `FitImage`) — importable by every
-deck through the runtime resolver, with typed props and the deck token
-system.
+**Phase 8 — reveal steps:** the `<Appear>` fragment primitive — content
+that registers itself with the runtime, step-aware navigation in the
+presenter (`deck:step` messages), staggered bullets via the library, and
+`?s=&st=` URL state so builds can be deep-linked precisely.

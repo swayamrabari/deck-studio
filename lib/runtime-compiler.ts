@@ -3,6 +3,7 @@ import * as React from "react";
 import * as JsxRuntime from "react/jsx-runtime";
 import type { ComponentType, ReactNode } from "react";
 
+import * as Slides from "@/components/slides";
 import { slideFilePaths } from "./runtime-protocol";
 import type { SlideMeta } from "./types";
 
@@ -34,6 +35,8 @@ const ENGINE_MODULES: Record<string, unknown> = {
   react: React,
   "react/jsx-runtime": JsxRuntime,
   "@/lib/types": {},
+  // The reusable deck library — layouts + content primitives.
+  "@/components/slides": Slides,
 };
 
 function normalizePath(path: string): string {

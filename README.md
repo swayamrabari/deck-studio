@@ -7,9 +7,10 @@ No export pipeline, ever.
 
 > Working name — despite the folder, this project never generates a `.pptx`.
 
-**Status:** Phases 0–6 complete — the full loop works: log in → create a
-deck → code it in the browser with live preview → present it fullscreen.
-Full scope, architecture, and roadmap in **[PLAN.md](./PLAN.md)**.
+**Status:** Phases 0–7 complete — log in → create a deck → code it with
+live preview → present it fullscreen, with a reusable engine library
+(`@/components/slides`) available to every deck. Full scope,
+architecture, and roadmap in **[PLAN.md](./PLAN.md)**.
 
 ## Quick start
 
