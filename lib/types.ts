@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { DeckFonts } from "./fonts";
 
 /** Transitions supported between slides by the presenter. */
 export type SlideTransition = "fade" | "slide" | "zoom";
@@ -37,4 +38,6 @@ export interface DeckConfig {
   defaultTransition: SlideTransition;
   /** Show slide numbers on the slide chrome. */
   slideNumbers: boolean;
+  /** Deck typography — semantic slots filled from the font registry. */
+  fonts: DeckFonts;
 }

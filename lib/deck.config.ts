@@ -10,4 +10,9 @@ export const deck: DeckConfig = {
   theme: "midnight",
   defaultTransition: "fade",
   slideNumbers: true,
+  fonts: {
+    display: "Space Grotesk",
+    body: "Inter",
+    mono: "JetBrains Mono",
+  },
 };
