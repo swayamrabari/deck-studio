@@ -32,6 +32,8 @@ export interface DeckLayoutProps {
   total: number;
   /** The current slide's metadata. */
   meta: SlideMeta;
+  /** Deck config: whether slide numbers should be shown. */
+  slideNumbers: boolean;
 }
 
 /** Aspect ratio of the logical slide canvas. */

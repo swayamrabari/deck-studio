@@ -15,9 +15,11 @@ import {
  * status and errors flow back.
  */
 export function DeckPreview({
+  deckId,
   files,
   activePath,
 }: {
+  deckId: string;
   files: Record<string, string>;
   activePath: string | null;
 }) {
@@ -66,11 +68,17 @@ export function DeckPreview({
     const timer = setTimeout(
       () =>
         // Preview shows the finished slide: a huge step reveals all fragments.
-        send({ type: "deck:load", files, index: slideIndex, step: 999 }),
+        send({
+          type: "deck:load",
+          files,
+          index: slideIndex,
+          step: 999,
+          deckId,
+        }),
       400
     );
     return () => clearTimeout(timer);
-  }, [files, slideIndex, ready, send]);
+  }, [files, slideIndex, ready, send, deckId]);
 
   // Handshake retry: the iframe may hydrate before this host does, so ping
   // until the frame answers (either side may win the race).

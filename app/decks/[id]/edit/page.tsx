@@ -3,14 +3,14 @@ import { notFound, redirect } from "next/navigation";
 
 import { DeckWorkspace } from "@/components/workspace/deck-workspace";
 import { db } from "@/db";
-import { deckFiles } from "@/db/schema";
+import { deckFiles, deckMedia } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { getOwnedDeck } from "@/lib/decks";
 
 // Auth-gated: reads the session cookie, so the route blocks on the server.
 export const instant = false;
 
-/** The deck workspace: file tree │ editor │ preview (Phase 5). */
+/** The deck workspace: file tree │ editor │ live preview. */
 export default async function DeckEditPage({
   params,
 }: PageProps<"/decks/[id]/edit">) {
@@ -31,7 +31,18 @@ export default async function DeckEditPage({
     rows.map((row) => [row.path, row.content])
   );
 
+  const mediaRows = await db
+    .select({ name: deckMedia.name, size: deckMedia.size, mime: deckMedia.mime })
+    .from(deckMedia)
+    .where(eq(deckMedia.deckId, id))
+    .orderBy(asc(deckMedia.name));
+
   return (
-    <DeckWorkspace deckId={deck.id} title={deck.title} initialFiles={initialFiles} />
+    <DeckWorkspace
+      deckId={deck.id}
+      title={deck.title}
+      initialFiles={initialFiles}
+      initialMedia={mediaRows}
+    />
   );
 }

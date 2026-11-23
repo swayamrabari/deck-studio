@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeftIcon,
   FilePlusIcon,
+  ImagePlusIcon,
   PlayIcon,
   PlusIcon,
   PresentationIcon,
@@ -51,23 +52,33 @@ type WorkspaceDialog =
   | { kind: "new-file" }
   | { kind: "rename"; path: string }
   | { kind: "delete"; path: string; folder: boolean }
+  | { kind: "media"; name: string }
   | null;
 
 function baseName(path: string) {
   return path.split("/").pop() ?? path;
 }
 
+export interface DeckMediaItem {
+  name: string;
+  size: number;
+  mime: string;
+}
+
 export function DeckWorkspace({
   deckId,
   title,
   initialFiles,
+  initialMedia,
 }: {
   deckId: string;
   title: string;
   initialFiles: Record<string, string>;
+  initialMedia: DeckMediaItem[];
 }) {
   const [files, setFiles] = useState<Record<string, string>>(initialFiles);
   const [savedFiles, setSavedFiles] = useState<Record<string, string>>(initialFiles);
+  const [mediaList, setMediaList] = useState<DeckMediaItem[]>(initialMedia);
   const [openPaths, setOpenPaths] = useState<string[]>(() => {
     const first = initialFiles["deck/layout.tsx"]
       ? "deck/layout.tsx"
@@ -90,6 +101,45 @@ export function DeckWorkspace({
   useEffect(() => {
     filesRef.current = files;
   }, [files]);
+
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadMedia(uploads: FileList | File[]) {
+    for (const file of Array.from(uploads)) {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/decks/${deckId}/media`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(data?.error ?? "Upload failed.");
+        return;
+      }
+      const data = (await res.json()) as DeckMediaItem;
+      setMediaList((prev) => {
+        const next = prev.filter((item) => item.name !== data.name);
+        return [...next, data].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setError(null);
+    }
+  }
+
+  async function deleteMedia(name: string) {
+    const res = await fetch(
+      `/api/decks/${deckId}/media/${encodeURIComponent(name)}`,
+      { method: "DELETE" }
+    );
+    if (res.ok) {
+      setMediaList((prev) => prev.filter((item) => item.name !== name));
+      setDialog((current) =>
+        current?.kind === "media" && current.name === name ? null : current
+      );
+    }
+  }
 
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   useEffect(() => {
@@ -386,6 +436,12 @@ export function DeckWorkspace({
                   <FilePlusIcon />
                   New file…
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => mediaInputRef.current?.click()}
+                >
+                  <ImagePlusIcon />
+                  Upload media…
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -400,6 +456,9 @@ export function DeckWorkspace({
                   setDialog({ kind: "rename", path });
                 }}
                 onDelete={(path, folder) => setDialog({ kind: "delete", path, folder })}
+                media={mediaList}
+                onOpenMedia={(name) => setDialog({ kind: "media", name })}
+                onDeleteMedia={(name) => void deleteMedia(name)}
               />
             </div>
           </ScrollArea>
@@ -488,9 +547,23 @@ export function DeckWorkspace({
               Preview
             </span>
           </div>
-          <DeckPreview files={files} activePath={activePath} />
+          <DeckPreview deckId={deckId} files={files} activePath={activePath} />
         </aside>
       </div>
+
+      <input
+        ref={mediaInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(event) => {
+          if (event.target.files?.length) {
+            void uploadMedia(event.target.files);
+          }
+          event.target.value = "";
+        }}
+      />
 
       <PathDialog
         open={dialog?.kind === "new-file"}
@@ -560,6 +633,50 @@ export function DeckWorkspace({
               }}
             >
               {pending ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialog?.kind === "media"}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-ui-mono text-sm">
+              {dialog?.kind === "media" ? dialog.name : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Use it in any slide with{" "}
+              <span className="font-ui-mono text-xs">
+                media(&quot;{dialog?.kind === "media" ? dialog.name : ""}&quot;)
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          {dialog?.kind === "media" ? (
+            <div className="overflow-hidden rounded-md border border-border bg-deck-bg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/decks/${deckId}/media/${encodeURIComponent(dialog.name)}`}
+                alt={dialog.name}
+                className="max-h-96 w-full object-contain"
+              />
+            </div>
+          ) : null}
+          <DialogFooter>
+            {dialog?.kind === "media" ? (
+              <Button
+                variant="destructive"
+                onClick={() => void deleteMedia(dialog.name)}
+              >
+                Delete
+              </Button>
+            ) : null}
+            <Button variant="outline" onClick={() => setDialog(null)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -5,7 +5,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import * as Slides from "@/components/slides";
 import { slideFilePaths } from "./runtime-protocol";
-import type { SlideMeta } from "./types";
+import type { DeckConfig, SlideMeta } from "./types";
 
 /**
  * In-browser deck compiler: TSX → CommonJS (Babel standalone), a virtual
@@ -27,8 +27,45 @@ export interface CompiledDeck {
         index: number;
         total: number;
         meta: SlideMeta;
+        slideNumbers: boolean;
       }>
     | null;
+  /** Deck config from `deck/deck.config.ts` (defaults applied). */
+  config: DeckConfig;
+}
+
+const DEFAULT_CONFIG: DeckConfig = {
+  title: "",
+  aspect: "16:9",
+  theme: "midnight",
+  defaultTransition: "fade",
+  slideNumbers: true,
+  fonts: { display: "Geist", body: "Geist", mono: "Geist Mono" },
+};
+
+function normalizeConfig(raw: unknown): DeckConfig {
+  const source = (raw ?? {}) as Partial<DeckConfig>;
+  const aspect = source.aspect === "4:3" ? "4:3" : "16:9";
+  const theme = source.theme === "paper" ? "paper" : "midnight";
+  const transition = ["fade", "slide", "zoom"].includes(
+    source.defaultTransition ?? ""
+  )
+    ? (source.defaultTransition as DeckConfig["defaultTransition"])
+    : "fade";
+  const fonts = source.fonts ?? DEFAULT_CONFIG.fonts;
+  return {
+    title: typeof source.title === "string" ? source.title : "",
+    aspect,
+    theme,
+    defaultTransition: transition,
+    slideNumbers:
+      typeof source.slideNumbers === "boolean" ? source.slideNumbers : true,
+    fonts: {
+      display: typeof fonts.display === "string" ? fonts.display : "Geist",
+      body: typeof fonts.body === "string" ? fonts.body : "Geist",
+      mono: typeof fonts.mono === "string" ? fonts.mono : "Geist Mono",
+    },
+  };
 }
 
 const ENGINE_MODULES: Record<string, unknown> = {
@@ -149,5 +186,18 @@ export function compileDeck(files: Record<string, string>): CompiledDeck {
       ? (layoutModule.default as CompiledDeck["Layout"])
       : null;
 
-  return { slides, Layout };
+  // Deck-wide config drives aspect, theme, fonts, and chrome.
+  let config = DEFAULT_CONFIG;
+  if (files["deck/deck.config.ts"] !== undefined) {
+    try {
+      const configModule = requireModule("deck/deck.config.ts") as {
+        deck?: unknown;
+      };
+      config = normalizeConfig(configModule.deck);
+    } catch {
+      // Unreadable config falls back to defaults rather than failing the deck.
+    }
+  }
+
+  return { slides, Layout, config };
 }

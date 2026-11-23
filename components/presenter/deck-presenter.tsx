@@ -109,8 +109,9 @@ export function DeckPresenter({
       files,
       index: indexRef.current,
       step: stepRef.current,
+      deckId,
     });
-  }, [ready, files, send]);
+  }, [ready, files, send, deckId]);
 
   // Handshake retry: the iframe may hydrate before this host does, so ping
   // until the frame answers (either side may win the race).

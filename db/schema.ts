@@ -1,4 +1,10 @@
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  blob,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 /**
  * v1 storage (SQLite). The schema is deliberately portable — the same
@@ -60,6 +66,31 @@ export const deckFiles = sqliteTable(
   ],
 );
 
+/**
+ * Deck media (images and other binary assets) — stored in the DB so a deck
+ * is fully portable, served at /api/decks/<id>/media/<name>.
+ */
+export const deckMedia = sqliteTable(
+  "deck_media",
+  {
+    id: text("id").primaryKey(),
+    deckId: text("deck_id")
+      .notNull()
+      .references(() => decks.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    mime: text("mime").notNull(),
+    bytes: blob("bytes", { mode: "buffer" }).notNull(),
+    size: integer("size").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("deck_media_deck_name_unique").on(table.deckId, table.name),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Deck = typeof decks.$inferSelect;
 export type DeckFile = typeof deckFiles.$inferSelect;
+export type DeckMedia = typeof deckMedia.$inferSelect;

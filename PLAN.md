@@ -215,6 +215,28 @@ export default function MetricsSlide() {
 7. The engine library (`@/components/slides`) supplies layouts and content
    primitives — resolved by the runtime's module map like any package.
 
+### Config (consumed by the runtime)
+
+`deck/deck.config.ts` drives rendering: `aspect` sets the canvas
+(`16:9` → 1280×720, `4:3` → 960×720), `theme` picks the palette
+(`midnight` | `paper`), `fonts` map the semantic slots onto the 8-family
+registry, and `slideNumbers` is passed to `layout.tsx`.
+`defaultTransition` is reserved for the presenter's cross-frame fade.
+
+### Media
+
+Deck images are stored in the database (`deck_media` BLOB, 8 MB cap,
+image mimes) and served at `/api/decks/<id>/media/<name>`. Upload from
+the workspace (`+` → **Upload media…**); files appear under a `media`
+folder in the tree (preview dialog + delete). Reference them in slides
+with the library helper — absolute URLs and data URIs pass through:
+
+```tsx
+import { FitImage, media } from "@/components/slides";
+
+<FitImage src={media("cover.jpg")} caption="Uploaded image" />;
+```
+
 ---
 
 ## 5 · Platform architecture
@@ -476,6 +498,27 @@ folder operations.
 - Verified live: a 5-fragment slide stepped 0→1→5 with correct
   visibility per fragment, URL sync, clamping at the end, deep links,
   and backward stepping — zero console errors
+
+**Config & media — what exists (post-Phase 9)**
+
+- `deck.config.ts` drives the runtime: aspect (16:9/4:3 canvas), theme
+  palette (midnight/paper), semantic font slots (8-family registry), and
+  `slideNumbers` passed to `layout.tsx`. The Tailwind browser build's
+  intermediate `--font-*` vars are overridden on the frame root so
+  per-deck font swaps actually reach the utility classes (bug found and
+  fixed live)
+- Media pipeline: `deck_media` table (BLOB, 8 MB cap, image mimes),
+  `GET/POST /api/decks/[id]/media` (list/upload), `GET/DELETE
+  /api/decks/[id]/media/[name]` (serve/remove); workspace tree shows a
+  `media` folder with image preview dialog and delete; `media()` helper
+  exported from `@/components/slides` and seeded automatically by the
+  runtime's `deck:load` message
+- Starter template's layout reads its footer title from
+  `deck.config.ts`
+- Verified live: upload → listed → slide using `media("test.png")`
+  rendered the image in the preview; switching config to 4:3 + paper +
+  Fraunces produced a 960×720 canvas, paper palette, and Fraunces
+  headings; restored cleanly
 
 **Phase 9 — removed by product decision**
 

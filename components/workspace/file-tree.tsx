@@ -7,6 +7,7 @@ import {
   FileTextIcon,
   FolderIcon,
   FolderOpenIcon,
+  ImageIcon,
   PencilIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -84,12 +85,18 @@ export function FileTree({
   onOpen,
   onRename,
   onDelete,
+  media = [],
+  onOpenMedia,
+  onDeleteMedia,
 }: {
   paths: string[];
   activePath: string | null;
   onOpen: (path: string) => void;
   onRename: (path: string) => void;
   onDelete: (path: string, recursive: boolean) => void;
+  media?: Array<{ name: string }>;
+  onOpenMedia?: (name: string) => void;
+  onDeleteMedia?: (name: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -207,5 +214,57 @@ export function FileTree({
     });
   }
 
-  return <div>{renderNodes(buildTree(paths), 0)}</div>;
+  return (
+    <div>
+      {renderNodes(buildTree(paths), 0)}
+      {media.length > 0 ? (
+        <div>
+          <div
+            className="flex items-center gap-1.5 py-1 pr-2 text-[13px] text-muted-foreground"
+            style={{ paddingLeft: 8 }}
+          >
+            <span aria-hidden className="size-3 shrink-0" />
+            <FolderIcon className="size-3.5 shrink-0" />
+            <span className="truncate">media</span>
+            <span className="ml-auto font-ui-mono text-[10px] text-muted-foreground">
+              {media.length}
+            </span>
+          </div>
+          {media.map((item) => (
+            <div
+              key={item.name}
+              role="button"
+              tabIndex={0}
+              className="group/row flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              style={{ paddingLeft: 20 }}
+              onClick={() => onOpenMedia?.(item.name)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenMedia?.(item.name);
+                }
+              }}
+            >
+              <span aria-hidden className="size-3 shrink-0" />
+              <ImageIcon className="size-3.5 shrink-0" />
+              <span className="truncate">{item.name}</span>
+              <span className="ml-auto flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/row:opacity-100">
+                <button
+                  type="button"
+                  aria-label={`Delete media ${item.name}`}
+                  className="cursor-pointer rounded-sm p-0.5 hover:bg-background hover:text-foreground"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteMedia?.(item.name);
+                  }}
+                >
+                  <Trash2Icon className="size-3" />
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }

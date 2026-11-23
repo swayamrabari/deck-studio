@@ -10,6 +10,8 @@ export type RuntimeInMessage =
       files: Record<string, string>;
       index: number;
       step?: number;
+      /** Enables the `media()` helper inside the deck. */
+      deckId?: string;
     }
   | { type: "deck:index"; index: number; step?: number }
   | { type: "deck:step"; step: number };

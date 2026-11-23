@@ -3,13 +3,18 @@
 import {
   Component,
   useEffect,
+  useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 
 import { SlideCanvas } from "@/components/deck/slide-canvas";
 import { SlideStepProvider } from "@/components/slides";
+import { setMediaBase } from "@/components/slides/media";
+import { DECK_THEMES } from "@/lib/deck-themes";
+import { fontRegistry } from "@/lib/fonts";
 import { compileDeck, type CompiledDeck } from "@/lib/runtime-compiler";
 import type {
   RuntimeInMessage,
@@ -100,6 +105,10 @@ export default function RuntimeFramePage() {
       }
       if (message.type !== "deck:load") return;
 
+      if (message.deckId) {
+        setMediaBase(`/api/decks/${message.deckId}/media/`);
+      }
+
       const filesJson = JSON.stringify(message.files);
       if (filesJson === filesJsonRef.current) {
         setIndex(Math.max(message.index, 0));
@@ -152,11 +161,44 @@ export default function RuntimeFramePage() {
   const current = deck?.slides[index] ?? null;
   const Layout = deck?.Layout ?? null;
   const Slide = current?.Component ?? null;
+  const config = deck?.config;
+  const canvasWidth = config?.aspect === "4:3" ? 960 : 1280;
+  const canvasHeight = 720;
+
+  const themeVars = useMemo<CSSProperties>(() => {
+    const theme = DECK_THEMES[config?.theme ?? "midnight"] ?? DECK_THEMES.midnight;
+    const registry = fontRegistry as Record<string, { varName: string }>;
+    const font = (key: string | undefined, fallback: string) =>
+      `var(${key && registry[key] ? registry[key].varName : fallback})`;
+    const display = font(config?.fonts.display, "--font-geist-sans");
+    const body = font(config?.fonts.body, "--font-geist-sans");
+    const mono = font(config?.fonts.mono, "--font-geist-mono");
+    return {
+      "--color-deck-bg": theme.bg,
+      "--color-deck-surface": theme.surface,
+      "--color-deck-fg": theme.fg,
+      "--color-deck-muted": theme.muted,
+      "--color-deck-accent": theme.accent,
+      // Semantic deck slots…
+      "--deck-font-display": display,
+      "--deck-font-body": body,
+      "--deck-font-mono": mono,
+      // …and the direct utility vars (Tailwind's browser build resolves its
+      // intermediate `--font-*` vars at :root, so override them here too).
+      "--font-display": display,
+      "--font-body": body,
+      "--font-mono": mono,
+    } as CSSProperties;
+  }, [config]);
 
   return (
-    <div className="relative h-dvh w-full">
+    <div className="relative h-dvh w-full" style={themeVars}>
       <style type="text/tailwindcss">{THEME_CSS}</style>
-      <SlideCanvas className="h-full w-full">
+      <SlideCanvas
+        className="h-full w-full"
+        width={canvasWidth}
+        height={canvasHeight}
+      >
         {deck && Slide ? (
           <SlideErrorBoundary
             key={`${index}-${version}`}
@@ -174,6 +216,7 @@ export default function RuntimeFramePage() {
                   index={index}
                   total={deck.slides.length}
                   meta={current?.meta ?? {}}
+                  slideNumbers={config?.slideNumbers ?? true}
                 >
                   <Slide />
                 </Layout>

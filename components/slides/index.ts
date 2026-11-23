@@ -23,4 +23,5 @@ export {
   type Bullet,
 } from "./content";
 export { Appear, SlideStepContext, SlideStepProvider } from "./step";
+export { media } from "./media";
 export { CodeBlock } from "./code-block";

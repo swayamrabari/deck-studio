@@ -5,15 +5,21 @@ import { canvasSize } from "@/lib/canvas";
 
 /**
  * The fixed logical canvas. Renders slide content at the authored
- * dimensions (1280×720 by default) and scales it to fit any container,
- * centered — letterboxing exactly like a real presenter.
+ * dimensions (configurable per deck via aspect) and scales it to fit any
+ * container, centered — letterboxing exactly like a real presenter.
  */
 export function SlideCanvas({
   children,
   className,
+  width = canvasSize.w,
+  height = canvasSize.h,
 }: {
   children: ReactNode;
   className?: string;
+  /** Logical canvas width — defaults to the engine canvas. */
+  width?: number;
+  /** Logical canvas height — defaults to the engine canvas. */
+  height?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
@@ -33,11 +39,9 @@ export function SlideCanvas({
     return () => observer.disconnect();
   }, []);
 
-  const scale = box
-    ? Math.min(box.w / canvasSize.w, box.h / canvasSize.h)
-    : 0;
-  const left = box ? (box.w - canvasSize.w * scale) / 2 : 0;
-  const top = box ? (box.h - canvasSize.h * scale) / 2 : 0;
+  const scale = box ? Math.min(box.w / width, box.h / height) : 0;
+  const left = box ? (box.w - width * scale) / 2 : 0;
+  const top = box ? (box.h - height * scale) / 2 : 0;
 
   return (
     <div
@@ -51,8 +55,8 @@ export function SlideCanvas({
           position: "absolute",
           top,
           left,
-          width: canvasSize.w,
-          height: canvasSize.h,
+          width,
+          height,
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}
