@@ -164,6 +164,18 @@
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
+
+/* Line numbers: horizontal padding around the gutter and the numbers.
+   CodeMirror's base theme scopes its gutter rules under a generated class
+   (3-class specificity injected at runtime), so this selector carries four
+   classes to win the cascade. */
+.cm-gutters {
+  padding-inline: 6px;
+}
+.cm-editor .cm-scroller .cm-lineNumbers .cm-gutterElement {
+  padding-inline: 8px;
+  text-align: right;
+}
 .cm-scroller::-webkit-scrollbar {
   width: 8px;
   height: 8px;
