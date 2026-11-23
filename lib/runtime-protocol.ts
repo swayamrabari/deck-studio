@@ -18,6 +18,10 @@ export type RuntimeOutMessage =
   | { type: "deck:frame-ready" }
   | { type: "deck:ready"; slideCount: number }
   | { type: "deck:steps"; index: number; totalSteps: number }
+  | {
+      type: "deck:meta";
+      slides: Array<{ title: string; notes: string }>;
+    }
   | { type: "deck:error"; message: string };
 
 const SLIDE_RE = /^deck\/(\d+)-[^/]+\/page\.tsx$/;

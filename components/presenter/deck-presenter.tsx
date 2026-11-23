@@ -8,6 +8,7 @@ import {
   ChevronRightIcon,
   MaximizeIcon,
   MinimizeIcon,
+  MonitorIcon,
 } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,6 +17,11 @@ import type {
   RuntimeInMessage,
   RuntimeOutMessage,
 } from "@/lib/runtime-protocol";
+import {
+  speakerChannelName,
+  type SpeakerChannelMessage,
+  type SpeakerState,
+} from "@/lib/speaker-channel";
 
 /**
  * Hosted presenter: the runtime frame at full viewport, driven by host
@@ -46,6 +52,9 @@ export function DeckPresenter({
   const [fading, setFading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [slideMetas, setSlideMetas] = useState<
+    Array<{ title: string; notes: string }>
+  >([]);
 
   /** Fragment counts discovered per slide (for backward navigation). */
   const stepsBySlide = useRef(new Map<number, number>());
@@ -93,6 +102,8 @@ export function DeckPresenter({
           setTotalSteps(message.totalSteps);
           setStep((previous) => Math.min(previous, message.totalSteps));
         }
+      } else if (message.type === "deck:meta") {
+        setSlideMetas(message.slides);
       } else if (message.type === "deck:error") {
         setError(message.message);
       }
@@ -183,6 +194,64 @@ export function DeckPresenter({
     }
   }, [fading, advanceStep, goToSlide]);
 
+  // ── Speaker console sync (BroadcastChannel) ──────────────────────────
+  const channelRef = useRef<BroadcastChannel | null>(null);
+  const startedAtRef = useRef(Date.now());
+  const actionsRef = useRef({ next: () => {}, prev: () => {} });
+  const broadcastRef = useRef<() => void>(() => {});
+
+  broadcastRef.current = () => {
+    channelRef.current?.postMessage({
+      type: "state",
+      index,
+      step,
+      totalSteps,
+      slideCount,
+      slides: slideMetas,
+      startedAt: startedAtRef.current,
+    } satisfies SpeakerState);
+  };
+
+  useEffect(() => {
+    actionsRef.current = { next: goNext, prev: goPrev };
+  }, [goNext, goPrev]);
+
+  useEffect(() => {
+    const channel = new BroadcastChannel(speakerChannelName(deckId));
+    channelRef.current = channel;
+    channel.onmessage = (event: MessageEvent) => {
+      const message = event.data as SpeakerChannelMessage | null;
+      if (!message || typeof message !== "object") return;
+      if (message.type === "hello") {
+        broadcastRef.current();
+        return;
+      }
+      if (message.type === "command") {
+        if (message.command === "next") actionsRef.current.next();
+        else actionsRef.current.prev();
+      }
+    };
+    // Heartbeat keeps the console's "Live" indicator truthful.
+    const heartbeat = window.setInterval(() => broadcastRef.current(), 2000);
+    return () => {
+      window.clearInterval(heartbeat);
+      channel.close();
+      channelRef.current = null;
+    };
+  }, [deckId]);
+
+  useEffect(() => {
+    broadcastRef.current();
+  }, [index, step, totalSteps, slideCount, slideMetas]);
+
+  const openSpeakerConsole = useCallback(() => {
+    window.open(
+      `/decks/${deckId}/presenter`,
+      `pptxgen-speaker-${deckId}`,
+      "width=1000,height=720"
+    );
+  }, [deckId]);
+
   const toggleFullscreen = useCallback(async () => {
     try {
       if (document.fullscreenElement) {
@@ -242,6 +311,9 @@ export function DeckPresenter({
         event.preventDefault();
         const last = Math.max(slideCountRef.current - 1, 0);
         goToSlide(last, stepsBySlide.current.get(last) ?? 0);
+      } else if (lower === "s") {
+        event.preventDefault();
+        openSpeakerConsole();
       } else if (lower === "f") {
         event.preventDefault();
         void toggleFullscreen();
@@ -266,7 +338,7 @@ export function DeckPresenter({
       window.removeEventListener("keydown", onKeyDown);
       if (jumpTimer) clearTimeout(jumpTimer);
     };
-  }, [goNext, goPrev, goToSlide, toggleFullscreen]);
+  }, [goNext, goPrev, goToSlide, toggleFullscreen, openSpeakerConsole]);
 
   const progress =
     slideCount > 0
@@ -345,6 +417,14 @@ export function DeckPresenter({
             }
           >
             <ChevronRightIcon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Open speaker console"
+            onClick={openSpeakerConsole}
+          >
+            <MonitorIcon />
           </Button>
           <Button
             variant="ghost"

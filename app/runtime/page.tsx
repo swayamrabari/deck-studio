@@ -118,6 +118,13 @@ export default function RuntimeFramePage() {
         );
         setStep(Math.max(message.step ?? 0, 0));
         post({ type: "deck:ready", slideCount: compiled.slides.length });
+        post({
+          type: "deck:meta",
+          slides: compiled.slides.map((slide) => ({
+            title: slide.meta.title ?? "",
+            notes: slide.meta.notes ?? "",
+          })),
+        });
       } catch (cause) {
         const messageText =
           cause instanceof Error ? cause.message : "Failed to compile the deck.";

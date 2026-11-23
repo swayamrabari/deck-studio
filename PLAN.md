@@ -352,7 +352,7 @@ folder operations.
 | 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ✅ done |
 | 7 | **Engine library** — layouts + content primitives exported through the runtime module map (`@/components/slides`) | ✅ done |
 | 8 | **Reveal steps** — `<Appear>` fragments, step-aware nav in runtime + presenter | ✅ done |
-| 9 | **Speaker console** — notes, next-slide preview, timer, cross-window sync | ⬜ |
+| 9 | **Speaker console** — notes, next-slide preview, timer, cross-window sync | ✅ done |
 | 10 | **Polish** — share links, template gallery, Playwright smoke test, authoring guide | ⬜ |
 | 11 | **Extras** — charts, Mermaid, KaTeX, media embeds | ⬜ |
 
@@ -480,6 +480,23 @@ folder operations.
   visibility per fragment, URL sync, clamping at the end, deep links,
   and backward stepping — zero console errors
 
+**Phase 9 — what exists**
+
+- `/decks/[id]/presenter` — the speaker console: current + next slide
+  previews (two headless runtime frames), speaker notes (`meta.notes`
+  via a new `deck:meta` frame message), and an elapsed timer that starts
+  with the presenter session
+- Sync: `BroadcastChannel("pptxgen-deck-<id>")` — the presenter is
+  authoritative, broadcasting state (index/step/steps/slide metas/
+  start time) on change plus a 2s heartbeat for the console's Live
+  indicator; the console sends `hello` on open and `next`/`prev`
+  commands back
+- Presenter: speaker-console button (monitor icon) and `S` key open the
+  console in a named popup window
+- Verified live across two tabs: presenter navigation updated the
+  console (counter, notes, both preview frames), and the console's Next
+  button advanced the presenter (`?s=3&st=0`), zero console errors
+
 ---
 
 ## 8 · Out of scope
@@ -496,7 +513,8 @@ folder operations.
 
 ## 9 · Next step
 
-**Phase 9 — speaker console:** `/decks/[id]/presenter` — a second window
-showing current + next slide, speaker notes (`meta.notes`), and the
-elapsed timer, synchronized with the presenter via `BroadcastChannel`
-(presenter authoritative; console can send step/index commands back).
+**Phase 10 — polish:** share links (`/share/[token]` read-only
+presenting for non-owners), a starter-template gallery, deck rename from
+the workspace, the legacy `/present` stub cleanup, a Playwright smoke
+test across auth → workspace → preview → presenter, and the authoring
+guide (README + in-app docs for the library).
