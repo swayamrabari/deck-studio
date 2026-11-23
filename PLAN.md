@@ -170,10 +170,10 @@ default transition, slide numbers, font slots). Types live in `lib/types.ts`.
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Deck overview: live thumbnail grid, jump-to-present, deck meta |
-| `/present` | Presentation mode — fullscreen slide, all keyboard control |
+| `/` | Deck overview: live thumbnail grid, click-to-preview dialogs, deck meta ✅ |
+| `/present` | Presentation mode — Phase 2 shell (scaled canvas, on-screen nav); keyboard, fullscreen, URL sync land in Phase 3 |
 | `/speaker` | Speaker console — second window, follows the presenter via `BroadcastChannel` |
-| `/style` | Design system specimen — tokens, primitives, all 8 font specimens |
+| `/style` | Design system specimen — tokens, primitives, all 8 font specimens ✅ |
 
 **Presenter keyboard map (v1)**
 
@@ -214,12 +214,17 @@ app/
   layout.tsx            # font registry vars + deck font slots + TooltipProvider ✅
   globals.css           # studio palette (dark-only) + deck tokens + font slots ✅
   style/page.tsx        # /style specimen — tokens, primitives, fonts        ✅
-  page.tsx              # → deck overview grid                                (Phase 2)
-  present/page.tsx      # → presentation mode                                 (Phase 3)
+  page.tsx              # overview: live thumbnails + preview dialogs        ✅
+  present/page.tsx      # presenter shell (stub) — hardened in Phase 3       ✅*
   speaker/page.tsx      # → speaker console                                    (Phase 6)
 components/
   ui/                   # shadcn kit (Base UI) — the chrome primitives       ✅
     button · dialog · tooltip · badge · progress · separator · kbd
+  deck/                 # the engine                                           ✅
+    deck-data.ts        #   manifest resolution (components + meta)           ✅
+    deck-provider.tsx   #   context + reducer: index/step, clamped nav        ✅
+    slide-canvas.tsx    #   fixed logical canvas, scaled + letterboxed        ✅
+    slide-card.tsx      #   overview card + click-to-preview dialog          ✅
   slides/               # THE reusable deck library (product's heart)
     Slide.tsx           #   semantic frame: bg, zones, numbers               (Phase 4)
     layouts/            #   TitleSlide, TwoColumn, Grid, …                   (Phase 4)
@@ -227,16 +232,16 @@ components/
     motion/             #   Appear, stagger helpers                           (Phase 5)
     index.ts            #   public barrel
   presenter/            # PresenterShell, ProgressBar, overlays                (Phases 3,6,7)
-  deck/                 # DeckProvider, useDeck, scaled canvas                (Phase 2)
 lib/
   types.ts              # SlideMeta, DeckConfig, SlideModule, DeckFonts      ✅
   deck.config.ts        # deck-wide settings incl. font slots                 ✅
   fonts.ts              # 8-family registry + semantic var mapping            ✅
+  canvas.ts             # logical canvas size + aspect class from config     ✅
   utils.ts              # cn (shadcn)                                         ✅
   hooks/                # useKeyboard, useFullscreen, …                      (Phase 3+)
 slides/
-  index.ts              # ordered manifest                                    ✅ (empty)
-  01-title.tsx …        # the deck itself                                     (Phase 2+)
+  index.ts              # ordered manifest                                    ✅
+  01-title.tsx …        # demo deck: title, why-code, metrics                ✅
 scripts/
   sync-slides.mjs       # manifest auto-generation                            (v1.x)
 ```
@@ -275,8 +280,8 @@ fullscreen.
 | --- | --- | --- | --- |
 | 0 | Foundation | Scaffold, structure, deck config, types, deck tokens | ✅ done |
 | 1 | Design foundation | shadcn init (base-nova, neutral), dark-only studio palette, font registry + config mapping, UI kit, `/style` page | ✅ done |
-| 2 | Slide engine | Scaled canvas, manifest wiring, 3 demo slides, `/` overview grid | ⬜ |
-| 3 | Presenter v1 | `/present`, keyboard nav, fullscreen, URL sync, progress UI, fade — *walking skeleton: end-to-end presenting works* | ⬜ |
+| 2 | Slide engine | Scaled canvas, manifest wiring, 3 demo slides, `/` overview grid with preview dialogs | ✅ done |
+| 3 | Presenter v1 | Keyboard nav, fullscreen, URL sync, progress UI, fade — hardens the `/present` shell into the *walking skeleton: end-to-end presenting works* | ⬜ |
 | 4 | Component library | All layouts + content components, CodeBlock highlighting, polished default deck theme | ⬜ |
 | 5 | Reveal steps | `<Appear>` fragments, step-aware nav, staggered bullets, slide/zoom transitions + overrides | ⬜ |
 | 6 | Speaker experience | `/speaker` console (notes, next preview, timer), BroadcastChannel sync, blank screens, `?` help | ⬜ |
@@ -297,10 +302,34 @@ fullscreen.
 - Runtime-verified: fonts resolve per config, monochrome palette active,
   zero console errors
 
+**Phase 2 — added today (2026-11-23)**
+
+- `components/deck/` — the engine: `deck-data.ts` (manifest resolution),
+  `slide-canvas.tsx` (fixed 1280×720 logical canvas, ResizeObserver +
+  transform-scale, letterboxed centering), `deck-provider.tsx` (context +
+  reducer over `{index, step}` with clamped nav — ready for Phase 3 URL
+  sync and Phase 5 fragments), `slide-card.tsx` (overview card +
+  click-to-preview dialog showing speaker notes)
+- `lib/canvas.ts` — canvas dimensions + aspect class derived from config
+- Demo deck (dogfooding — it pitches the app itself): `slides/01-title.tsx`,
+  `02-why-code.tsx`, `03-metrics.tsx`; manifest wired
+- `/` overview: deck header (title, aspect, font slots), live thumbnail
+  grid, preview dialogs, Present CTA
+- `/present`: presenter shell stub — canvas letterboxed on black, on-screen
+  prev/next + padded counter (keyboard/fullscreen/URL sync = Phase 3)
+- A11y: link-buttons use `buttonVariants()`-styled `<Link>` (Base UI
+  `nativeButton` semantics preserved)
+- Verified at runtime: thumbnail scale exact (0.2896 @ 370px), preview
+  dialog, full 01→03 navigation with button clamping, zero console
+  errors/warnings
+
 ---
 
 ## 9 · Next step
 
-**Phase 2 — slide engine**: the scaled 16:9 canvas component, manifest
-wiring (`DeckProvider`), three demo slides to prove the model, and the
-`/` overview grid rendering live thumbnails — all built from the UI kit.
+**Phase 3 — presenter v1**: harden the `/present` shell into the real
+presenter — keyboard control (arrows/Space/Home/End/number jumps),
+fullscreen API, URL as source of truth (`?s=&st=` via
+`history.replaceState`), progress bar, fade transitions between slides,
+and the overview grid overlay (O/Esc). At the end of Phase 3, end-to-end
+presenting works — the walking skeleton.

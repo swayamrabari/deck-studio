@@ -6,8 +6,8 @@ own presenter (fullscreen mode, speaker console, reveal steps).
 
 > Working name — despite the folder, this project never generates a `.pptx`.
 
-**Status:** Phases 0–1 complete (foundation + design system). Full scope,
-architecture, and roadmap live in **[PLAN.md](./PLAN.md)**.
+**Status:** Phases 0–2 complete (foundation, design system, slide engine).
+Full scope, architecture, and roadmap live in **[PLAN.md](./PLAN.md)**.
 
 ## Quick start
 
@@ -16,12 +16,12 @@ npm install
 npm run dev
 ```
 
-| Route | Purpose | Phase |
+| Route | Purpose | Status |
 | --- | --- | --- |
-| `/style` | Design system specimen — tokens, primitives, all 8 fonts | ✅ live |
-| `/` | Deck overview — live thumbnail grid | 2 |
-| `/present` | Presentation mode | 3 |
-| `/speaker` | Speaker console (notes, timer, sync) | 6 |
+| `/style` | Design system specimen — tokens, primitives, all 8 fonts | ✅ |
+| `/` | Deck overview — live thumbnails, click any slide to preview | ✅ |
+| `/present` | Presenter shell — scaled canvas, on-screen nav (keyboard/fullscreen next phase) | ✅ stub |
+| `/speaker` | Speaker console (notes, timer, sync) | Phase 6 |
 
 ## Design language
 
@@ -33,19 +33,11 @@ Serif 4, Playfair Display, Fraunces, JetBrains Mono, Geist Mono) mapped to
 semantic slots in `lib/deck.config.ts` — swap a deck's entire type system
 in one line. See it all at **`/style`**.
 
-## Authoring (preview)
+## Authoring (live now)
 
-Slides live in `slides/` — one file per slide, plain React + Tailwind:
-
-```tsx
-// slides/01-title.tsx
-export const meta = { title: "Hello" };
-
-export default function () {
-  return <h1 className="text-6xl font-bold">Hello, deck.</h1>;
-}
-```
-
-Order is defined by the manifest in `slides/index.ts`. The full component
-library (`Slide`, `TitleSlide`, `TwoColumn`, `Bullets`, `Stat`, …) lands in
+Slides live in `slides/` — one file per slide, plain React + Tailwind.
+The demo deck (`01-title.tsx`, `02-why-code.tsx`, `03-metrics.tsx`)
+dogfoods the app: it pitches the engine it runs on. Order is defined by
+the manifest in `slides/index.ts`. The full component library
+(`Slide`, `TitleSlide`, `TwoColumn`, `Bullets`, `Stat`, …) lands in
 Phase 4 — see [PLAN.md](./PLAN.md) for the complete model.

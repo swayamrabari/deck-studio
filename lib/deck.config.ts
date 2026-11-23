@@ -5,7 +5,7 @@ import type { DeckConfig } from "./types";
  * The slides themselves live in `slides/`.
  */
 export const deck: DeckConfig = {
-  title: "Untitled Deck",
+  title: "Slides as code",
   aspect: "16:9",
   theme: "midnight",
   defaultTransition: "fade",

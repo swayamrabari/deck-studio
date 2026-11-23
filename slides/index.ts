@@ -1,26 +1,18 @@
 import type { SlideModule } from "@/lib/types";
 
+import * as title from "./01-title";
+import * as whyCode from "./02-why-code";
+import * as metrics from "./03-metrics";
+
 /**
  * ── Slide manifest ────────────────────────────────────────────────────
- * The deck, in presentation order.
+ * The deck, in presentation order. One file per slide in this folder
+ * (`01-title.tsx`, `02-why-code.tsx`, …), imported here top-to-bottom.
  *
- * Author one file per slide in this folder (`01-title.tsx`,
- * `02-agenda.tsx`, …) and import it here top-to-bottom. Each slide file:
- *
- *   export const meta: SlideMeta = { title, notes, transition? };
- *   export default function MySlide() { … }
- *
- * Reordering the deck = reordering entries here (or renaming files).
- * The presenter, speaker view, and overview grid all read from this list.
- *
- * Example:
- *
- *   import * as title from "./01-title";
- *   import * as agenda from "./02-agenda";
- *
- *   export const slides: SlideModule[] = [title, agenda];
- *
- * The engine that consumes this manifest is built in Phase 1 — see
- * PLAN.md §7 for the roadmap.
+ * Each slide file default-exports a React component and may export
+ * `meta: SlideMeta` with a title, speaker notes, and a transition
+ * override. Reordering the deck = reordering entries here (or renaming
+ * files). The overview grid, presenter, and speaker view all read from
+ * this list.
  */
-export const slides: SlideModule[] = [];
+export const slides: SlideModule[] = [title, whyCode, metrics];
