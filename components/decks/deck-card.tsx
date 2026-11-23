@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Trash2Icon } from "lucide-react";
+import { PlayIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogClose,
@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { cn } from "cn";
 
 export function DeckCard({
   id,
@@ -47,10 +48,10 @@ export function DeckCard({
   }
 
   return (
-    <div className="group relative rounded-lg border border-border bg-card transition-colors hover:border-foreground/25">
+    <div className="group flex flex-col rounded-lg border border-border bg-card transition-colors hover:border-foreground/25">
       <Link
         href={`/decks/${id}/edit`}
-        className="block rounded-lg p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="block flex-1 rounded-t-lg p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <p className="truncate text-sm font-medium">{title}</p>
         <div className="mt-3 flex items-center gap-2">
@@ -59,37 +60,56 @@ export function DeckCard({
         </div>
       </Link>
 
-      <div className="absolute right-2 top-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Delete ${title}`}
-              />
-            }
+      <div className="flex items-center justify-between gap-2 border-t border-border px-2.5 py-1.5">
+        <span className="pl-1 font-ui-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          deck
+        </span>
+        <div className="flex items-center gap-1">
+          <Link
+            href={`/decks/${id}/present`}
+            aria-label={`Present ${title}`}
+            className={cn(buttonVariants({ variant: "ghost", size: "xs" }))}
           >
-            <Trash2Icon />
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete deck?</DialogTitle>
-              <DialogDescription>
-                &ldquo;{title}&rdquo; and all of its files will be permanently
-                removed.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline" disabled={pending} />}>
-                Cancel
-              </DialogClose>
-              <Button variant="destructive" onClick={onDelete} disabled={pending}>
-                {pending ? "Deleting…" : "Delete"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            <PlayIcon />
+            Present
+          </Link>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Delete ${title}`}
+                />
+              }
+            >
+              <Trash2Icon />
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete deck?</DialogTitle>
+                <DialogDescription>
+                  &ldquo;{title}&rdquo; and all of its files will be
+                  permanently removed.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose
+                  render={<Button variant="outline" disabled={pending} />}
+                >
+                  Cancel
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  onClick={onDelete}
+                  disabled={pending}
+                >
+                  {pending ? "Deleting…" : "Delete"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </div>
   );
