@@ -194,6 +194,9 @@ export default function RuntimeFramePage() {
   return (
     <div className="relative h-dvh w-full" style={themeVars}>
       <style type="text/tailwindcss">{THEME_CSS}</style>
+      {deck?.styles ? (
+        <style data-deck-styles>{deck.styles}</style>
+      ) : null}
       <SlideCanvas
         className="h-full w-full"
         width={canvasWidth}

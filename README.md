@@ -56,4 +56,19 @@ import { FitImage, media } from "@/components/slides";
 <FitImage src={media("cover.jpg")} caption="Uploaded image" />;
 ```
 
+### Styles
+
+`deck/styles.css` holds reusable plain-CSS classes, injected into the
+preview/presenter frame. Deck theme variables work there
+(`var(--color-deck-muted)`, `var(--font-display)`, …).
+
+```css
+.eyebrow {
+  font-family: var(--font-mono);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--color-deck-muted);
+}
+```
+
 Details, architecture, and the phase-by-phase roadmap: **[PLAN.md](./PLAN.md)**.

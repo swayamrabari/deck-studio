@@ -1,0 +1,25 @@
+/*
+ * deck/styles.css — plain CSS for this deck.
+ *
+ * Classes defined here are available in every slide (they are injected
+ * into the preview/presenter frame). Use this next to Tailwind for
+ * anything reusable that utilities don't express cleanly.
+ *
+ * Deck theme variables are usable here, e.g.:
+ *   color: var(--color-deck-muted);
+ *   font-family: var(--font-display);
+ */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--color-deck-muted);
+}
+
+.hairline-rule {
+  border: 0;
+  border-top: 1px solid var(--color-deck-surface);
+}

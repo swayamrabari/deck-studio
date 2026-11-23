@@ -10,9 +10,7 @@ export const meta: SlideMeta = {
 export default function TitleSlide() {
   return (
     <div className="flex flex-col justify-center">
-      <p className="font-mono text-sm uppercase tracking-[0.35em] text-deck-muted">
-        pptxgen · starter deck
-      </p>
+      <p className="eyebrow">pptxgen · starter deck</p>
       <h1 className="mt-6 font-display text-8xl font-medium tracking-tight">
         Slides as code.
       </h1>

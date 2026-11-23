@@ -237,6 +237,28 @@ import { FitImage, media } from "@/components/slides";
 <FitImage src={media("cover.jpg")} caption="Uploaded image" />;
 ```
 
+### Styles
+
+`deck/styles.css` is the deck's plain-CSS file — write reusable classes
+next to Tailwind; the runtime injects it into the preview/presenter frame
+(any other top-level `deck/*.css` is included too). Deck theme variables
+are available inside it (`var(--color-deck-muted)`, `var(--font-display)`,
+…), and the editor gives `.css` files CSS syntax.
+
+```css
+/* deck/styles.css */
+.eyebrow {
+  font-family: var(--font-mono);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--color-deck-muted);
+}
+```
+
+```tsx
+<p className="eyebrow">Section label</p>
+```
+
 ---
 
 ## 5 · Platform architecture

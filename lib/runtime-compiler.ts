@@ -32,6 +32,8 @@ export interface CompiledDeck {
     | null;
   /** Deck config from `deck/deck.config.ts` (defaults applied). */
   config: DeckConfig;
+  /** Concatenated deck CSS (`deck/styles.css` + other top-level `*.css`). */
+  styles: string;
 }
 
 const DEFAULT_CONFIG: DeckConfig = {
@@ -199,5 +201,14 @@ export function compileDeck(files: Record<string, string>): CompiledDeck {
     }
   }
 
-  return { slides, Layout, config };
+  // Deck CSS: raw stylesheets injected into the frame — the reusable-class
+  // escape hatch next to Tailwind. `deck/styles.css` is the canonical file;
+  // any other top-level `deck/*.css` is included too (sorted).
+  const styles = Object.keys(files)
+    .filter((path) => /^deck\/[^/]+\.css$/.test(path))
+    .sort()
+    .map((path) => `/* ${path} */\n${files[path]}`)
+    .join("\n\n");
+
+  return { slides, Layout, config, styles };
 }
