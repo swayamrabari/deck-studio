@@ -165,7 +165,7 @@ export function FileTree({
               ? "bg-card text-foreground"
               : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
           )}
-          style={{ paddingLeft: indent + 14 }}
+          style={{ paddingLeft: indent }}
           onClick={() => onOpen(node.path)}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
@@ -174,6 +174,8 @@ export function FileTree({
             }
           }}
         >
+          {/* Arrow column spacer — keeps file rows aligned with folders. */}
+          <span aria-hidden className="size-3 shrink-0" />
           <Icon className="size-3.5 shrink-0" />
           <span className="truncate">{node.name}</span>
           <span className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">

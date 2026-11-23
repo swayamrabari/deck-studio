@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "cn";
 import { CodeEditor } from "./code-editor";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileTree } from "./file-tree";
 
 const NEW_SLIDE_CONTENT = `import type { SlideMeta } from "@/lib/types";
@@ -391,18 +392,20 @@ export function DeckWorkspace({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto py-2">
-            <FileTree
-              paths={Object.keys(files)}
-              activePath={activePath}
-              onOpen={openFile}
-              onRename={(path) => {
-                setDraftValue(path);
-                setDialog({ kind: "rename", path });
-              }}
-              onDelete={(path, folder) => setDialog({ kind: "delete", path, folder })}
-            />
-          </div>
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="py-2">
+              <FileTree
+                paths={Object.keys(files)}
+                activePath={activePath}
+                onOpen={openFile}
+                onRename={(path) => {
+                  setDraftValue(path);
+                  setDialog({ kind: "rename", path });
+                }}
+                onDelete={(path, folder) => setDialog({ kind: "delete", path, folder })}
+              />
+            </div>
+          </ScrollArea>
           <div className="shrink-0 border-t border-border px-3 py-2 font-ui-mono text-[10px] text-muted-foreground">
             {Object.keys(files).length} files
           </div>
