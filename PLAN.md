@@ -34,7 +34,7 @@ local setup. The engine built in Phases 0–2 becomes the platform's core.
 | Product model | **Hosted multi-user platform** — login, deck dashboard, browser authoring (pivoted from the single-deck local tool) |
 | Decks | Many per user; a deck = a file tree in the database, App Router-shaped |
 | Auth (v1) | **Custom token-based, minimal** — email + password (hashed), opaque session tokens in httpOnly cookies. Upgrade path: Better Auth / OAuth |
-| Database (v1) | **SQLite + Drizzle ORM** — zero infra; schema portable to Postgres later |
+| Database (v1) | **SQLite via Node's built-in `node:sqlite` + Drizzle (sqlite-proxy adapter)** — zero native dependencies; schema portable to Postgres later |
 | Deck runtime | **Custom in-browser runtime** — transpile → virtual modules → sandboxed iframe; Tailwind v4 browser build |
 | Editor | **CodeMirror 6**, custom-themed to the studio system (consistency-first); workspace chrome from shadcn (Tabs, Tree); Monaco as a later option |
 | UI kit | **shadcn/ui** (Base UI primitives, `nova` style, neutral base) |
@@ -222,11 +222,12 @@ export default function MetricsSlide() {
 ### Surfaces
 
 ```
-/                     landing (redirects to /decks when signed in)
-/login, /signup       token auth
+/                     landing (redirects to /decks when signed in)      ✅
+/login, /signup       token auth                                          ✅
 /decks                dashboard — your decks + New deck (seeded from
-                      the starter template)
+                      the starter template)                              ✅
 /decks/[id]/edit      workspace — file tree │ editor tabs │ live preview
+                      (placeholder file list until Phase 4)              ✅*
 /decks/[id]/present   full presenter, driven through the runtime frame
 /share/[token]        read-only present link (Phase 10, polish)
 ```
@@ -252,7 +253,12 @@ export default function MetricsSlide() {
   by `@tailwindcss/browser` inside the runtime frame
 - **shadcn/ui** on Base UI + **lucide-react** icons
 - **CodeMirror 6** — the editing surface, custom studio theme
-- **SQLite + Drizzle ORM** — storage; **custom token auth**
+- **SQLite via `node:sqlite`** + Drizzle's sqlite-proxy adapter — fully
+  typed queries with zero native dependencies (better-sqlite3 was tried
+  and its binary hard-crashes on this machine); migrations are plain
+  generated `.sql` files applied by a tiny sync runner on boot
+- **Custom token auth** — scrypt password hashes, opaque session tokens
+  stored as sha256, httpOnly cookies
 - **Runtime**: Babel standalone transpile (SWC-wasm upgrade path) + custom
   module resolver + same-origin sandboxed iframe
 - No external auth vendors, no hosted DB in v1 — the upgrade path
@@ -334,7 +340,7 @@ Three panes, one studio:
 | 0 | Engine foundation — scaffold, types, deck tokens | ✅ done |
 | 1 | Design foundation — shadcn studio, font registry, `/style` | ✅ done |
 | 2 | Slide engine core — scaled canvas, provider, local overview + present stub (transitional) | ✅ done |
-| 3 | **Platform foundation** — token auth (signup/login/logout), SQLite + Drizzle schema, decks CRUD API, `/decks` dashboard, starter template seeding | ⬜ next |
+| 3 | **Platform foundation** — token auth (signup/login/logout), SQLite + Drizzle schema, decks CRUD API, `/decks` dashboard, starter template seeding | ✅ done |
 | 4 | **Editor workspace** — file tree CRUD, shadcn Tabs + CodeMirror (studio theme), autosave; preview static until Phase 5 | ⬜ |
 | 5 | **Deck runtime** — transpile, virtual modules, sandboxed frame, Tailwind browser: live preview goes end-to-end | ⬜ the heart |
 | 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ⬜ |
@@ -343,6 +349,27 @@ Three panes, one studio:
 | 9 | **Speaker console** — notes, next-slide preview, timer, cross-window sync | ⬜ |
 | 10 | **Polish** — share links, template gallery, Playwright smoke test, authoring guide | ⬜ |
 | 11 | **Extras** — charts, Mermaid, KaTeX, media embeds | ⬜ |
+
+**Phase 3 — what exists (2026-11-23)**
+
+- Auth: `lib/auth.ts` — scrypt password hashing, opaque session tokens
+  (sha256-stored), httpOnly cookies; `requireUser()` page guard with
+  `connection()` for Cache Components; signup/login/logout API routes
+- Storage: `db/` — Drizzle schema (`users`, `sessions`, `decks`,
+  `deck_files`), migrations via generated `.sql` + a sync runner on
+  boot, lazy connection that never touches SQLite during builds;
+  better-sqlite3 was replaced by Node's built-in `node:sqlite` after its
+  binary hard-crashed — zero native deps now
+- Deck CRUD: create (seeded from `templates/starter/` — 6 files incl.
+  `layout.tsx` + a deck-local component), delete (cascade), dashboard
+  with live slide counts; `/decks/[id]/edit` placeholder lists stored
+  files until the Phase 4 workspace
+- Cache Components compliance: `instant = false` on the five auth-aware
+  routes; studio landing, auth cards, deck cards with delete dialogs,
+  user menu
+- Verified live: signup → dashboard → new deck (6 seeded files) →
+  delete (cascade) → sign out → sign in (HTTP round-trip too), zero
+  console errors
 
 ---
 
@@ -360,7 +387,9 @@ Three panes, one studio:
 
 ## 9 · Next step
 
-**Phase 3 — platform foundation:** custom token auth (email + password →
-httpOnly session cookies), SQLite + Drizzle schema (`users`, `sessions`,
-`decks`, `deck_files`), deck CRUD API routes, the `/decks` dashboard with
-starter-template seeding on "New deck".
+**Phase 4 — editor workspace**: the three-pane `/decks/[id]/edit` —
+file tree CRUD over the deck contract (create/rename/delete files and
+folders), shadcn Tabs + **CodeMirror 6** with a custom studio theme,
+debounced autosave with dirty indicators, and a read-only file API
+(GET/PUT `deck_files`). The live preview pane stays static until the
+Phase 5 runtime makes it breathe.

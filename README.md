@@ -7,10 +7,9 @@ No export pipeline, ever.
 
 > Working name — despite the folder, this project never generates a `.pptx`.
 
-**Status:** engine complete (Phases 0–2: design system + slide engine
-core). The platform pivot is locked in — auth, dashboard, browser editor,
-and the sandboxed deck runtime are on the roadmap in
-**[PLAN.md](./PLAN.md)**.
+**Status:** Phases 0–3 complete (engine, design system, slide core,
+platform foundation: token auth + SQLite + decks dashboard). Full scope,
+architecture, and roadmap live in **[PLAN.md](./PLAN.md)**.
 
 ## Quick start
 
@@ -21,10 +20,13 @@ npm run dev
 
 | Route | Purpose | Status |
 | --- | --- | --- |
+| `/` | Landing (redirects to your decks when signed in) | ✅ |
+| `/login` · `/signup` | Token auth (email + password) | ✅ |
+| `/decks` | Dashboard — your decks, New deck (starter template) | ✅ |
+| `/decks/[id]/edit` | Deck workspace (placeholder file list; editor lands Phase 4) | ✅* |
 | `/style` | Design system specimen — tokens, primitives, all 8 fonts | ✅ |
-| `/` | Local deck overview (transitional → landing/dashboard, Phase 3) | ✅ |
 | `/present` | Local presenter stub (transitional → `/decks/[id]/present`) | ✅ stub |
-| `/login` · `/decks` · `/decks/[id]/edit` · `/decks/[id]/present` | Platform surfaces | Phase 3+ |
+| `/decks/[id]/present` | Hosted presenter | Phase 6 |
 
 ## The model
 

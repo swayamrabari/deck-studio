@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { DeckFonts } from "./fonts";
 
 /** Transitions supported between slides by the presenter. */
@@ -21,6 +21,17 @@ export interface SlideMeta {
 export interface SlideModule {
   default: ComponentType;
   meta?: SlideMeta;
+}
+
+/** Props the runtime passes to a deck's `layout.tsx` for every slide. */
+export interface DeckLayoutProps {
+  children: ReactNode;
+  /** Zero-based index of the slide being rendered. */
+  index: number;
+  /** Total slides in the deck. */
+  total: number;
+  /** The current slide's metadata. */
+  meta: SlideMeta;
 }
 
 /** Aspect ratio of the logical slide canvas. */
