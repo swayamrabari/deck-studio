@@ -70,6 +70,20 @@ export function DeckPreview({
     return () => clearTimeout(timer);
   }, [files, slideIndex, ready, send]);
 
+  // Handshake retry: the iframe may hydrate before this host does, so ping
+  // until the frame answers (either side may win the race).
+  useEffect(() => {
+    if (ready) return;
+    const ping = () => send({ type: "deck:ping" });
+    ping();
+    const interval = window.setInterval(ping, 500);
+    const stop = window.setTimeout(() => window.clearInterval(interval), 15000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(stop);
+    };
+  }, [ready, send]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
       <div className="aspect-video w-full shrink-0 overflow-hidden rounded-md border border-border bg-deck-bg">

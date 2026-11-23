@@ -5,12 +5,12 @@ import Link from "next/link";
 import {
   ArrowLeftIcon,
   FilePlusIcon,
+  PlayIcon,
   PlusIcon,
   PresentationIcon,
   XIcon,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -356,9 +356,13 @@ export function DeckWorkspace({
             />
             {status}
           </span>
-          <Badge variant="outline" className="hidden md:inline-flex">
-            Preview · Phase 5
-          </Badge>
+          <Link
+            href={`/decks/${deckId}/present`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            <PlayIcon />
+            Present
+          </Link>
         </div>
       </header>
 

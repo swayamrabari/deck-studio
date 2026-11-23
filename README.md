@@ -7,10 +7,9 @@ No export pipeline, ever.
 
 > Working name — despite the folder, this project never generates a `.pptx`.
 
-**Status:** Phases 0–5 complete. The workspace live preview now compiles
-and renders your deck in a sandboxed in-browser runtime — edit a file and
-the canvas updates. Full scope, architecture, and roadmap in
-**[PLAN.md](./PLAN.md)**.
+**Status:** Phases 0–6 complete — the full loop works: log in → create a
+deck → code it in the browser with live preview → present it fullscreen.
+Full scope, architecture, and roadmap in **[PLAN.md](./PLAN.md)**.
 
 ## Quick start
 
@@ -25,6 +24,7 @@ npm run dev
 | `/login` · `/signup` | Token auth (email + password) | ✅ |
 | `/decks` | Dashboard — your decks, New deck (starter template) | ✅ |
 | `/decks/[id]/edit` | Workspace — file tree, CodeMirror 6, autosave, **live preview** (sandboxed in-browser runtime) | ✅ |
+| `/decks/[id]/present` | Hosted presenter — keyboard, fullscreen, `?s=` deep links, progress, fades | ✅ |
 | `/style` | Design system specimen — tokens, primitives, all 8 fonts | ✅ |
 | `/present` | Local presenter stub (transitional → `/decks/[id]/present`) | ✅ stub |
 | `/decks/[id]/present` | Hosted presenter | Phase 6 |

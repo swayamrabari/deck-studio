@@ -4,6 +4,7 @@
  */
 
 export type RuntimeInMessage =
+  | { type: "deck:ping" }
   | { type: "deck:load"; files: Record<string, string>; index: number }
   | { type: "deck:index"; index: number };
 

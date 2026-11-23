@@ -349,7 +349,7 @@ folder operations.
 | 3 | **Platform foundation** — token auth (signup/login/logout), SQLite + Drizzle schema, decks CRUD API, `/decks` dashboard, starter template seeding | ✅ done |
 | 4 | **Editor workspace** — file tree CRUD, shadcn Tabs + CodeMirror (studio theme), autosave; preview static until Phase 5 | ✅ done |
 | 5 | **Deck runtime** — transpile, virtual modules, sandboxed frame, Tailwind browser: live preview goes end-to-end | ✅ done |
-| 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ⬜ |
+| 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ✅ done |
 | 7 | **Engine library** — layouts + content primitives exported through the runtime module map (`@/components/slides`) | ⬜ |
 | 8 | **Reveal steps** — `<Appear>` fragments, step-aware nav in runtime + presenter | ⬜ |
 | 9 | **Speaker console** — notes, next-slide preview, timer, cross-window sync | ⬜ |
@@ -421,6 +421,26 @@ folder operations.
   around the slide); restore → original persisted, SAVED; zero console
   errors
 
+**Phase 6 — what exists**
+
+- `/decks/[id]/present` (owner-gated): the runtime frame at full viewport
+  on black, with a hairline progress bar, deck title, prev/next, padded
+  `NN / NN` counter, and fullscreen toggle
+- Keyboard: `→`/Space/`N`, `←`/`P`, `Home`/`End`, `F` (fullscreen),
+  digits + `Enter` for jump-to-slide (1.5s buffer), `Esc` clears the
+  buffer
+- URL sync: `?s=` (1-based) via `history.replaceState`; deep links open
+  the right slide; presenter entry point added to the workspace header
+- Cross-frame fade: iframe fades out (~140ms), `deck:index` swaps the
+  slide, fades back in
+- **Handshake hardening**: frames can hydrate *before* the host (warm
+  cache + SSR'd iframe), so hosts now ping (`deck:ping`) until the frame
+  answers `deck:frame-ready` — the lost-message race is gone for both
+  preview and presenter
+- Verified live: renders at `01 / 03` with 33% progress; End → 03/03,
+  clamps at the end; Home → 01; `3`+Enter jumps; `?s=3` deep link works;
+  zero console errors
+
 ---
 
 ## 8 · Out of scope
@@ -437,9 +457,10 @@ folder operations.
 
 ## 9 · Next step
 
-**Phase 6 — hosted presenter:** `/decks/[id]/present` — the same runtime
-frame at full viewport, driven by the presenter: keyboard control
-(arrows/Space/Home/End/number jumps), fullscreen API, `?s=` URL sync,
-progress bar, fade transitions between slides, and the cross-frame
-index messages (`deck:index`) that are already in the protocol. At the
-end of Phase 6, the platform presents real, user-authored decks.
+**Phase 7 — engine library:** ship the reusable deck library as a
+module map entry (`@/components/slides`): layout helpers (`TitleSlide`,
+`SectionSlide`, `Statement`, `TwoColumn`, `Grid`, `FullBleed`) and
+content primitives (`Bullets`, `CodeBlock` with syntax highlighting,
+`Quote`, `Stat`/`KpiRow`, `Table`, `FitImage`) — importable by every
+deck through the runtime resolver, with typed props and the deck token
+system.

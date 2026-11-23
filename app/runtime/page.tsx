@@ -80,6 +80,12 @@ export default function RuntimeFramePage() {
       const message = event.data as RuntimeInMessage | null;
       if (!message || typeof message !== "object") return;
 
+      if (message.type === "deck:ping") {
+        // The host may hydrate after our announce — answer its pings.
+        post({ type: "deck:frame-ready" });
+        return;
+      }
+
       if (message.type === "deck:index") {
         setIndex(Math.max(message.index, 0));
         return;
