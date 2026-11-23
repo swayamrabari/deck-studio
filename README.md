@@ -7,9 +7,9 @@ No export pipeline, ever.
 
 > Working name — despite the folder, this project never generates a `.pptx`.
 
-**Status:** Phases 0–3 complete (engine, design system, slide core,
-platform foundation: token auth + SQLite + decks dashboard). Full scope,
-architecture, and roadmap live in **[PLAN.md](./PLAN.md)**.
+**Status:** Phases 0–4 complete (engine, design system, platform
+foundation, editor workspace: file tree + CodeMirror + autosave). Full
+scope, architecture, and roadmap live in **[PLAN.md](./PLAN.md)**.
 
 ## Quick start
 
@@ -23,7 +23,7 @@ npm run dev
 | `/` | Landing (redirects to your decks when signed in) | ✅ |
 | `/login` · `/signup` | Token auth (email + password) | ✅ |
 | `/decks` | Dashboard — your decks, New deck (starter template) | ✅ |
-| `/decks/[id]/edit` | Deck workspace (placeholder file list; editor lands Phase 4) | ✅* |
+| `/decks/[id]/edit` | Workspace — file tree, tabs, CodeMirror 6, autosave (live preview lands Phase 5) | ✅ |
 | `/style` | Design system specimen — tokens, primitives, all 8 fonts | ✅ |
 | `/present` | Local presenter stub (transitional → `/decks/[id]/present`) | ✅ stub |
 | `/decks/[id]/present` | Hosted presenter | Phase 6 |

@@ -227,7 +227,7 @@ export default function MetricsSlide() {
 /decks                dashboard — your decks + New deck (seeded from
                       the starter template)                              ✅
 /decks/[id]/edit      workspace — file tree │ editor tabs │ live preview
-                      (placeholder file list until Phase 4)              ✅*
+                      (preview placeholder until Phase 5)                  ✅
 /decks/[id]/present   full presenter, driven through the runtime frame
 /share/[token]        read-only present link (Phase 10, polish)
 ```
@@ -318,18 +318,24 @@ editor saves ──► DB (deck_files)
 
 ---
 
-## 6 · Editor workspace (spec)
+## 6 · Editor workspace (spec → shipped)
 
 Three panes, one studio:
 
-- **Left — file tree**: the deck contract made visible. Create / rename /
-  delete files and folders with validation against the conventions
-  (`layout.tsx`, `<NN-name>/page.tsx`, `deck/components/*`).
-- **Center — editor**: shadcn Tabs for open files, **CodeMirror 6** as the
-  surface (Geist Mono, custom studio theme, TSX syntax, find/replace,
-  autocomplete). Debounced autosave + dirty indicators; `Cmd+S` manual.
-- **Right — live preview**: the runtime frame rendering the actual canvas.
-  Transpile/execution errors surface in a console strip beneath it.
+- **Left — file tree**: the deck contract made visible. Folders derive
+  from paths; rows are keyboard-accessible. Create (`New slide` with
+  auto-numbering, `New file` by path), rename (path dialog; tabs
+  follow), delete (confirm dialog; folders delete recursively).
+- **Center — editor**: closable tab strip + **CodeMirror 6** (Geist
+  Mono, custom studio theme, TSX/CSS language modes, autocomplete,
+  find/replace). Debounced autosave (800ms) + `Cmd+S`, dirty dots per
+  tab, header save status.
+- **Right — live preview**: placeholder canvas until the Phase 5
+  runtime lands.
+
+The storage API lives at `/api/decks/[id]/files` (GET/POST/PUT/PATCH/
+DELETE) with ownership checks, `deck/` path validation, and prefix-based
+folder operations.
 
 ---
 
@@ -341,7 +347,7 @@ Three panes, one studio:
 | 1 | Design foundation — shadcn studio, font registry, `/style` | ✅ done |
 | 2 | Slide engine core — scaled canvas, provider, local overview + present stub (transitional) | ✅ done |
 | 3 | **Platform foundation** — token auth (signup/login/logout), SQLite + Drizzle schema, decks CRUD API, `/decks` dashboard, starter template seeding | ✅ done |
-| 4 | **Editor workspace** — file tree CRUD, shadcn Tabs + CodeMirror (studio theme), autosave; preview static until Phase 5 | ⬜ |
+| 4 | **Editor workspace** — file tree CRUD, shadcn Tabs + CodeMirror (studio theme), autosave; preview static until Phase 5 | ✅ done |
 | 5 | **Deck runtime** — transpile, virtual modules, sandboxed frame, Tailwind browser: live preview goes end-to-end | ⬜ the heart |
 | 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ⬜ |
 | 7 | **Engine library** — layouts + content primitives exported through the runtime module map (`@/components/slides`) | ⬜ |
@@ -371,6 +377,27 @@ Three panes, one studio:
   delete (cascade) → sign out → sign in (HTTP round-trip too), zero
   console errors
 
+**Phase 4 — what exists**
+
+- File API: `app/api/decks/[id]/files` — GET/POST/PUT/PATCH/DELETE with
+  ownership checks, path validation (`deck/` contract, no traversal),
+  size caps, prefix renames for folders, recursive deletes, and
+  `updatedAt` bumps (dashboard ordering reflects edits)
+- Workspace `/decks/[id]/edit`: three panes — file tree (implicit
+  folders, collapsible, keyboard-accessible rows, hover rename/delete),
+  tabs + **CodeMirror 6** in a token-driven studio theme (Geist Mono,
+  restrained syntax palette), preview placeholder until Phase 5
+- Actions: **New slide** (auto-numbered `deck/NN-new-slide/page.tsx`
+  stub), New file (path dialog), rename (path dialog, tabs follow),
+  delete file/folder (confirm dialog with subtree count)
+- Autosave: 800ms debounce per file + `Cmd+S` flush, per-tab dirty dots,
+  header status (Saved / Unsaved changes / Saving… / Save error)
+- a11y: tree rows are focusable buttons; hover actions stay in the
+  accessibility tree and tab order
+- Verified live: new slide → edit → autosave persisted (API-confirmed) →
+  rename (tree + tabs follow) → folder delete (recursive, tab cleanup),
+  zero console errors
+
 ---
 
 ## 8 · Out of scope
@@ -387,9 +414,10 @@ Three panes, one studio:
 
 ## 9 · Next step
 
-**Phase 4 — editor workspace**: the three-pane `/decks/[id]/edit` —
-file tree CRUD over the deck contract (create/rename/delete files and
-folders), shadcn Tabs + **CodeMirror 6** with a custom studio theme,
-debounced autosave with dirty indicators, and a read-only file API
-(GET/PUT `deck_files`). The live preview pane stays static until the
-Phase 5 runtime makes it breathe.
+**Phase 5 — deck runtime (the heart):** compile the deck in the browser
+— TSX → JS (Babel standalone), resolve virtual modules (deck files by
+path + engine modules like `@/components/slides` provided by the host),
+render inside the same-origin sandboxed iframe with Tailwind's browser
+build styling the frame, and wire the workspace preview pane to it with
+`postMessage` state. At the end of Phase 5, editing a slide shows the
+real rendered deck — instantly.
