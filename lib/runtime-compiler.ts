@@ -1,0 +1,150 @@
+import Babel from "@babel/standalone";
+import * as React from "react";
+import * as JsxRuntime from "react/jsx-runtime";
+import type { ComponentType, ReactNode } from "react";
+
+import { slideFilePaths } from "./runtime-protocol";
+import type { SlideMeta } from "./types";
+
+/**
+ * In-browser deck compiler: TSX → CommonJS (Babel standalone), a virtual
+ * module map (deck files + host-provided engine modules), and a tiny CJS
+ * loader. Everything runs in the runtime frame — never on the server.
+ */
+
+export interface CompiledSlide {
+  path: string;
+  Component: ComponentType;
+  meta: SlideMeta;
+}
+
+export interface CompiledDeck {
+  slides: CompiledSlide[];
+  Layout:
+    | ComponentType<{
+        children: ReactNode;
+        index: number;
+        total: number;
+        meta: SlideMeta;
+      }>
+    | null;
+}
+
+const ENGINE_MODULES: Record<string, unknown> = {
+  react: React,
+  "react/jsx-runtime": JsxRuntime,
+  "@/lib/types": {},
+};
+
+function normalizePath(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part === "..") parts.pop();
+    else parts.push(part);
+  }
+  return parts.join("/");
+}
+
+function compileModule(path: string, source: string): string {
+  const result = Babel.transform(source, {
+    filename: path,
+    sourceType: "module",
+    presets: [
+      ["react", { runtime: "automatic" }],
+      ["typescript"],
+    ],
+    plugins: ["transform-modules-commonjs"],
+  });
+  return result?.code ?? "";
+}
+
+/** Compiles the whole deck; throws a readable error on failure. */
+export function compileDeck(files: Record<string, string>): CompiledDeck {
+  const slidePaths = slideFilePaths(files);
+  if (slidePaths.length === 0) {
+    throw new Error(
+      "No slides found. Add a deck/<NN-name>/page.tsx file (e.g. deck/01-title/page.tsx)."
+    );
+  }
+
+  const cache = new Map<string, unknown>();
+
+  function resolveSpecifier(specifier: string, fromPath: string): string {
+    if (ENGINE_MODULES[specifier]) return specifier;
+
+    let target: string;
+    if (specifier.startsWith("@/")) {
+      target = normalizePath(specifier.slice(2));
+    } else if (specifier.startsWith(".")) {
+      const baseDir = fromPath.split("/").slice(0, -1).join("/");
+      target = normalizePath(`${baseDir}/${specifier}`);
+    } else {
+      // Unknown bare import — leave it to fail loudly in require().
+      return specifier;
+    }
+
+    const candidates = [
+      target,
+      `${target}.tsx`,
+      `${target}.ts`,
+      `${target}.jsx`,
+      `${target}.js`,
+      `${target}/index.tsx`,
+      `${target}/index.ts`,
+    ];
+    for (const candidate of candidates) {
+      if (files[candidate] !== undefined) return candidate;
+    }
+    return target;
+  }
+
+  function requireModule(id: string): unknown {
+    if (ENGINE_MODULES[id]) return ENGINE_MODULES[id];
+    if (cache.has(id)) return cache.get(id);
+
+    const source = files[id];
+    if (source === undefined) {
+      throw new Error(`Cannot find module "${id}".`);
+    }
+
+    const code = compileModule(id, source);
+    const module = { exports: {} as Record<string, unknown> };
+    // Register before evaluating so circular imports resolve.
+    cache.set(id, module.exports);
+    const factory = new Function("require", "module", "exports", code);
+    factory(
+      (specifier: string) => requireModule(resolveSpecifier(specifier, id)),
+      module,
+      module.exports
+    );
+    cache.set(id, module.exports);
+    return module.exports;
+  }
+
+  const slides = slidePaths.map((path) => {
+    const module = requireModule(path) as {
+      default?: unknown;
+      meta?: SlideMeta;
+    };
+    if (typeof module.default !== "function") {
+      throw new Error(`${path} must default-export a slide component.`);
+    }
+    return {
+      path,
+      Component: module.default as ComponentType,
+      meta: module.meta ?? {},
+    };
+  });
+
+  const layoutPath = files["deck/layout.tsx"] !== undefined ? "deck/layout.tsx" : null;
+  const layoutModule = layoutPath
+    ? (requireModule(layoutPath) as { default?: unknown })
+    : null;
+  const Layout =
+    layoutModule && typeof layoutModule.default === "function"
+      ? (layoutModule.default as CompiledDeck["Layout"])
+      : null;
+
+  return { slides, Layout };
+}

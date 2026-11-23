@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "cn";
 import { CodeEditor } from "./code-editor";
+import { DeckPreview } from "./deck-preview";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileTree } from "./file-tree";
 
@@ -485,23 +486,13 @@ export function DeckWorkspace({
           )}
         </section>
 
-        <aside className="hidden w-[380px] shrink-0 flex-col border-l border-border xl:flex">
+        <aside className="flex w-[320px] shrink-0 flex-col border-l border-border xl:w-[400px]">
           <div className="flex h-10 shrink-0 items-center border-b border-border px-3">
             <span className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               Preview
             </span>
           </div>
-          <div className="flex flex-1 flex-col items-center justify-center gap-5 p-6">
-            <div className="flex aspect-video w-full items-center justify-center rounded-md border border-border bg-deck-bg">
-              <span className="font-ui-mono text-[10px] uppercase tracking-[0.2em] text-deck-muted">
-                canvas
-              </span>
-            </div>
-            <p className="max-w-64 text-center text-xs leading-relaxed text-muted-foreground">
-              The live preview renders your deck through the sandboxed
-              runtime — arriving in Phase 5.
-            </p>
-          </div>
+          <DeckPreview files={files} activePath={activePath} />
         </aside>
       </div>
 

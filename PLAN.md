@@ -348,7 +348,7 @@ folder operations.
 | 2 | Slide engine core — scaled canvas, provider, local overview + present stub (transitional) | ✅ done |
 | 3 | **Platform foundation** — token auth (signup/login/logout), SQLite + Drizzle schema, decks CRUD API, `/decks` dashboard, starter template seeding | ✅ done |
 | 4 | **Editor workspace** — file tree CRUD, shadcn Tabs + CodeMirror (studio theme), autosave; preview static until Phase 5 | ✅ done |
-| 5 | **Deck runtime** — transpile, virtual modules, sandboxed frame, Tailwind browser: live preview goes end-to-end | ⬜ the heart |
+| 5 | **Deck runtime** — transpile, virtual modules, sandboxed frame, Tailwind browser: live preview goes end-to-end | ✅ done |
 | 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ⬜ |
 | 7 | **Engine library** — layouts + content primitives exported through the runtime module map (`@/components/slides`) | ⬜ |
 | 8 | **Reveal steps** — `<Appear>` fragments, step-aware nav in runtime + presenter | ⬜ |
@@ -398,6 +398,29 @@ folder operations.
   rename (tree + tabs follow) → folder delete (recursive, tab cleanup),
   zero console errors
 
+**Phase 5 — what exists**
+
+- Runtime frame `/runtime` (sandboxed same-origin iframe): compiles the
+  whole deck in-browser — Babel standalone (TSX → CommonJS), a virtual
+  module map (deck files by path with relative + `@/` alias resolution;
+  engine modules `react`, `react/jsx-runtime`, `@/lib/types`), and a tiny
+  CJS loader with caching. Renders `deck/layout.tsx` wrapping the active
+  slide inside the fixed canvas; slides ordered by `NN-` prefixes
+- Tailwind's browser build (client-only dynamic import) generates
+  user-written utilities inside the frame, seeded with the deck palette +
+  semantic font tokens via a `text/tailwindcss` `@theme` block
+- postMessage protocol with a **ready handshake** (`deck:frame-ready` →
+  host sends `deck:load`; fixes the hydration race), `deck:ready`
+  (slide count), `deck:error`; render crashes caught by a slide error
+  boundary; compile errors surface in-frame and in the workspace status
+- Workspace preview pane (now always visible, 320px / 400px on xl)
+  follows the active slide file, debounces loads (400ms), and shows
+  `Live · N slides` or the compile error
+- Verified live: deck renders at the exact canvas scale inside the frame;
+  editing `layout.tsx` recompiled instantly (marker layout rendered
+  around the slide); restore → original persisted, SAVED; zero console
+  errors
+
 ---
 
 ## 8 · Out of scope
@@ -414,10 +437,9 @@ folder operations.
 
 ## 9 · Next step
 
-**Phase 5 — deck runtime (the heart):** compile the deck in the browser
-— TSX → JS (Babel standalone), resolve virtual modules (deck files by
-path + engine modules like `@/components/slides` provided by the host),
-render inside the same-origin sandboxed iframe with Tailwind's browser
-build styling the frame, and wire the workspace preview pane to it with
-`postMessage` state. At the end of Phase 5, editing a slide shows the
-real rendered deck — instantly.
+**Phase 6 — hosted presenter:** `/decks/[id]/present` — the same runtime
+frame at full viewport, driven by the presenter: keyboard control
+(arrows/Space/Home/End/number jumps), fullscreen API, `?s=` URL sync,
+progress bar, fade transitions between slides, and the cross-frame
+index messages (`deck:index`) that are already in the protocol. At the
+end of Phase 6, the platform presents real, user-authored decks.
