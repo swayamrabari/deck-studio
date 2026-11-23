@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# pptxgen
 
-## Getting Started
+A **code-first presentation engine** on Next.js. Slides are React components
+styled with Tailwind — and instead of any export pipeline, the app ships its
+own presenter (fullscreen mode, speaker console, reveal steps).
 
-First, run the development server:
+> Working name — despite the folder, this project never generates a `.pptx`.
+
+**Status:** Phase 0 (foundation) complete. Full scope, architecture, and
+roadmap live in **[PLAN.md](./PLAN.md)**.
+
+## Quick start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Route | Purpose | Phase |
+| --- | --- | --- |
+| `/` | Deck overview — live thumbnail grid | 1 |
+| `/present` | Presentation mode | 2 |
+| `/speaker` | Speaker console (notes, timer, sync) | 5 |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Authoring (preview)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Slides live in `slides/` — one file per slide, plain React + Tailwind:
 
-## Learn More
+```tsx
+// slides/01-title.tsx
+export const meta = { title: "Hello" };
 
-To learn more about Next.js, take a look at the following resources:
+export default function () {
+  return <h1 className="text-6xl font-bold">Hello, deck.</h1>;
+}
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Order is defined by the manifest in `slides/index.ts`. The full component
+library (`Slide`, `TitleSlide`, `TwoColumn`, `Bullets`, `Stat`, …) lands in
+Phase 3 — see [PLAN.md](./PLAN.md) for the complete model.

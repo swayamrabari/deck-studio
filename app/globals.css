@@ -10,6 +10,19 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-geist-sans);
+}
+
+/* ── Deck theme tokens ("midnight") ───────────────────────────────────
+   The slide component library styles itself with these utilities
+   (bg-deck-bg, text-deck-fg, border-deck-surface, …) so a theme swap
+   later (PLAN.md Phase 6) is just re-pointing these values. */
+@theme {
+  --color-deck-bg: #0b0e14;
+  --color-deck-surface: #131826;
+  --color-deck-fg: #e8ecf3;
+  --color-deck-muted: #9aa4b8;
+  --color-deck-accent: #7aa2f7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +35,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
