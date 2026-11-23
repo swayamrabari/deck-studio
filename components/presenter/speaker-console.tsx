@@ -6,7 +6,6 @@ import {
   ArrowLeftIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  PresentationIcon,
   TimerIcon,
 } from "lucide-react";
 
@@ -22,9 +21,11 @@ import { ConsolePreview } from "./console-preview";
 
 function formatElapsed(ms: number): string {
   const total = Math.max(Math.floor(ms / 1000), 0);
-  const minutes = Math.floor(total / 60);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const mmss = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  return hours > 0 ? `${hours}:${mmss}` : mmss;
 }
 
 function pad(value: number): string {
@@ -34,7 +35,7 @@ function pad(value: number): string {
 /**
  * Speaker console: current + next slide previews, speaker notes, and the
  * elapsed timer — driven by BroadcastChannel state from the presenter.
- * Controls send navigation commands back.
+ * Navigation commands flow back to the presenter.
  */
 export function SpeakerConsole({
   deckId,
@@ -47,6 +48,7 @@ export function SpeakerConsole({
 }) {
   const channelRef = useRef<BroadcastChannel | null>(null);
   const lastSeenRef = useRef(0);
+  const startedAtRef = useRef<number | null>(null);
   const [state, setState] = useState<SpeakerState | null>(null);
   const [connected, setConnected] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -59,6 +61,7 @@ export function SpeakerConsole({
       const message = event.data as SpeakerChannelMessage | null;
       if (message?.type !== "state") return;
       lastSeenRef.current = Date.now();
+      startedAtRef.current = message.startedAt;
       setConnected(true);
       setState(message);
     };
@@ -72,12 +75,15 @@ export function SpeakerConsole({
     };
   }, [deckId]);
 
-  // Timer + connection heartbeat check.
+  // Elapsed timer anchored to the presenter session start + a heartbeat
+  // freshness check for the connection indicator.
   useEffect(() => {
     const tick = () => {
-      if (lastSeenRef.current > 0) {
-        setElapsed(Date.now() - lastSeenRef.current);
-        setConnected(Date.now() - lastSeenRef.current < 4500);
+      setConnected(
+        lastSeenRef.current > 0 && Date.now() - lastSeenRef.current < 4500
+      );
+      if (startedAtRef.current !== null) {
+        setElapsed(Date.now() - startedAtRef.current);
       }
     };
     tick();
@@ -92,13 +98,41 @@ export function SpeakerConsole({
     } satisfies SpeakerChannelMessage);
   }, []);
 
+  // Console-side keyboard control (synced to the presenter).
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key === "ArrowRight" || event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        sendCommand("next");
+      } else if (event.key === "ArrowLeft" || event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        sendCommand("prev");
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [sendCommand]);
+
   const index = state?.index ?? 0;
   const step = state?.step ?? 0;
   const totalSteps = state?.totalSteps ?? 0;
   const slideCount = state?.slideCount ?? 0;
+  const currentTitle = state?.slides[index]?.title ?? "";
   const notes = state?.slides[index]?.notes ?? "";
   const nextIndex = index + 1;
   const hasNext = slideCount > 0 && nextIndex < slideCount;
+  const nextTitle = hasNext ? (state?.slides[nextIndex]?.title ?? "") : "";
+  const ready = Object.keys(files).length > 0;
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -118,7 +152,7 @@ export function SpeakerConsole({
             <h1 className="truncate text-sm leading-tight font-medium">{title}</h1>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <span
             className={cn(
               "flex items-center gap-1.5 font-ui-mono text-[10px] uppercase tracking-wider",
@@ -131,13 +165,13 @@ export function SpeakerConsole({
                 connected ? "bg-foreground" : "bg-muted-foreground/40"
               )}
             />
-            {connected ? "Live" : "Waiting for presenter…"}
+            {connected ? "Live" : "Waiting"}
           </span>
           <span className="flex items-center gap-1.5 font-ui-mono text-xs tabular-nums text-muted-foreground">
             <TimerIcon className="size-3.5" />
-            {formatElapsed(state ? elapsed : 0)}
+            {formatElapsed(elapsed)}
           </span>
-          <span className="font-ui-mono text-xs tabular-nums text-muted-foreground">
+          <span className="min-w-24 text-right font-ui-mono text-xs tabular-nums text-muted-foreground">
             {slideCount > 0
               ? `${pad(index + 1)} / ${pad(slideCount)}${totalSteps > 0 ? ` · ${step}/${totalSteps}` : ""}`
               : "— / —"}
@@ -146,25 +180,40 @@ export function SpeakerConsole({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <section className="flex min-w-0 flex-1 flex-col gap-4 p-4">
-          <div className="min-h-0 flex-1">
-            <p className="mb-2 font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Current
-            </p>
-            <div className="aspect-video overflow-hidden rounded-md border border-border bg-deck-bg">
-              {files && Object.keys(files).length > 0 ? (
+        {/* Left: previews + controls */}
+        <section className="flex min-w-0 flex-1 flex-col gap-4 p-5">
+          <div className="flex min-h-0 flex-1 flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Current
+              </span>
+              {currentTitle ? (
+                <span className="truncate font-ui-mono text-[10px] text-muted-foreground">
+                  {currentTitle}
+                </span>
+              ) : null}
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-black">
+              {ready ? (
                 <ConsolePreview files={files} index={index} step={step} />
               ) : null}
             </div>
           </div>
 
-          <div className="flex items-end gap-5">
-            <div className="w-2/3">
-              <p className="mb-2 font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Next
-              </p>
-              <div className="aspect-video overflow-hidden rounded-md border border-border bg-deck-bg">
-                {hasNext && files && Object.keys(files).length > 0 ? (
+          <div className="flex shrink-0 items-end gap-6">
+            <div className="w-2/5 max-w-96 min-w-40">
+              <div className="mb-2 flex items-baseline justify-between gap-3">
+                <span className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Next
+                </span>
+                {nextTitle ? (
+                  <span className="truncate font-ui-mono text-[10px] text-muted-foreground">
+                    {nextTitle}
+                  </span>
+                ) : null}
+              </div>
+              <div className="aspect-video overflow-hidden rounded-md border border-border bg-black">
+                {hasNext && ready ? (
                   <ConsolePreview files={files} index={nextIndex} step={999} />
                 ) : (
                   <div className="flex h-full items-center justify-center">
@@ -175,41 +224,62 @@ export function SpeakerConsole({
                 )}
               </div>
             </div>
-            <div className="flex gap-2 pb-1">
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Previous step"
-                onClick={() => sendCommand("prev")}
-                disabled={!connected}
-              >
-                <ChevronLeftIcon />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Next step"
-                onClick={() => sendCommand("next")}
-                disabled={!connected}
-              >
-                <ChevronRightIcon />
-              </Button>
+
+            <div className="flex flex-1 flex-col items-end gap-2 pb-1">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-9"
+                  aria-label="Previous step"
+                  onClick={() => sendCommand("prev")}
+                  disabled={!connected}
+                >
+                  <ChevronLeftIcon />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-9"
+                  aria-label="Next step"
+                  onClick={() => sendCommand("next")}
+                  disabled={!connected}
+                >
+                  <ChevronRightIcon />
+                </Button>
+              </div>
+              <p className="font-ui-mono text-[10px] text-muted-foreground">
+                ← → drive the presenter
+              </p>
             </div>
           </div>
         </section>
 
-        <aside className="flex w-[360px] shrink-0 flex-col border-l border-border">
-          <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-4">
-            <PresentationIcon className="size-3.5 text-muted-foreground" />
+        {/* Right: notes */}
+        <aside className="flex w-[380px] shrink-0 flex-col border-l border-border xl:w-[420px]">
+          <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border px-5">
             <span className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Notes
+              Speaker notes
+            </span>
+            <span className="truncate font-ui-mono text-[10px] text-muted-foreground">
+              {state ? pad(index + 1) : "—"}
             </span>
           </div>
           <ScrollArea className="min-h-0 flex-1">
-            <p className="p-4 font-body text-base leading-relaxed whitespace-pre-wrap">
-              {state ? notes || "No notes for this slide." : "Open the presenter to see notes."}
+            <p className="p-6 font-body text-lg leading-relaxed whitespace-pre-wrap">
+              {state
+                ? notes || "No notes for this slide."
+                : "Open the presenter to see notes."}
             </p>
           </ScrollArea>
+          <div className="shrink-0 border-t border-border px-5 py-3">
+            <p className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              Up next
+            </p>
+            <p className="mt-1 truncate text-sm">
+              {hasNext ? nextTitle || "Untitled slide" : "End of deck"}
+            </p>
+          </div>
         </aside>
       </div>
     </div>
