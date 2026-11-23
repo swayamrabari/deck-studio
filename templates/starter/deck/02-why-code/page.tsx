@@ -20,7 +20,7 @@ const POINTS = [
   },
   {
     k: "Presenter",
-    d: "Fullscreen presenting, keyboard control, and speaker notes are built in.",
+    d: "Fullscreen presenting and keyboard control are built in.",
   },
 ];
 

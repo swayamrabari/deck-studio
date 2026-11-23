@@ -6,9 +6,9 @@ export type SlideTransition = "fade" | "slide" | "zoom";
 
 /** Per-slide metadata, exported as `meta` from each slide file. */
 export interface SlideMeta {
-  /** Human-readable title — shown in the overview grid and speaker view. */
+  /** Human-readable title — used by tooling/overview. */
   title?: string;
-  /** Speaker notes — shown in the speaker console. */
+  /** Freeform notes metadata (kept for deck authors; not surfaced in the presenter). */
   notes?: string;
   /** Per-slide transition override; the deck default is used otherwise. */
   transition?: SlideTransition;

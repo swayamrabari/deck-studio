@@ -52,7 +52,7 @@ local setup. The engine built in Phases 0–2 becomes the platform's core.
 Two principles, enforced by architecture:
 
 1. **"Chrome recedes, content leads."** Every tool surface (landing,
-   dashboard, editor workspace, presenter, speaker console, dialogs) is a
+   dashboard, editor workspace, presenter, dialogs) is a
    grayscale studio. The deck is the only thing on screen with color and
    personality.
 2. **One token system, two namespaces.** Chrome reads shadcn semantic tokens
@@ -226,13 +226,12 @@ export default function MetricsSlide() {
 /login, /signup       token auth                                          ✅
 /decks                dashboard — your decks + New deck (seeded from
                       the starter template)                              ✅
-/decks/[id]/edit      workspace — file tree │ editor tabs │ live preview
-                      (preview placeholder until Phase 5)                  ✅
-/decks/[id]/present   full presenter, driven through the runtime frame
-/share/[token]        read-only present link (Phase 10, polish)
+/decks/[id]/edit      workspace — file tree │ editor tabs │ live preview  ✅
+/decks/[id]/present   full presenter, driven through the runtime frame     ✅
+/share/[token]        read-only present link (Phase 9, polish)
 ```
 
-**Presenter keyboard map (unchanged)**
+**Presenter keyboard map**
 
 | Key | Action |
 | --- | --- |
@@ -240,11 +239,10 @@ export default function MetricsSlide() {
 | `←` / `P` | Previous |
 | `Home` / `End` | First / last slide |
 | `F` | Toggle fullscreen |
-| `O` / `Esc` | Slide overview grid |
-| `S` | Pop out speaker view |
-| `B` / `W` | Black / white attention screen |
+| `O` / `Esc` | Slide overview grid (planned) |
+| `B` / `W` | Black / white attention screen (planned) |
 | `1-9` + `Enter` | Jump to slide number |
-| `?` | Shortcut overlay |
+| `?` | Shortcut overlay (planned) |
 
 ### Stack
 
@@ -352,9 +350,8 @@ folder operations.
 | 6 | **Hosted presenter** — `/decks/[id]/present`: keyboard, fullscreen, URL sync, progress bar, fade transitions | ✅ done |
 | 7 | **Engine library** — layouts + content primitives exported through the runtime module map (`@/components/slides`) | ✅ done |
 | 8 | **Reveal steps** — `<Appear>` fragments, step-aware nav in runtime + presenter | ✅ done |
-| 9 | **Speaker console** — notes, next-slide preview, timer, cross-window sync | ✅ done |
-| 10 | **Polish** — share links, template gallery, Playwright smoke test, authoring guide | ⬜ |
-| 11 | **Extras** — charts, Mermaid, KaTeX, media embeds | ⬜ |
+| 9 | **Polish** — share links, template gallery, Playwright smoke test, authoring guide | ⬜ |
+| 10 | **Extras** — charts, Mermaid, KaTeX, media embeds | ⬜ |
 
 **Phase 3 — what exists (2026-11-23)**
 
@@ -480,28 +477,21 @@ folder operations.
   visibility per fragment, URL sync, clamping at the end, deep links,
   and backward stepping — zero console errors
 
-**Phase 9 — what exists**
+**Phase 9 — removed by product decision**
 
-- `/decks/[id]/presenter` — the speaker console: current + next slide
-  previews (two headless runtime frames), speaker notes (`meta.notes`
-  via a new `deck:meta` frame message), and an elapsed timer that starts
-  with the presenter session
-- Sync: `BroadcastChannel("pptxgen-deck-<id>")` — the presenter is
-  authoritative, broadcasting state (index/step/steps/slide metas/
-  start time) on change plus a 2s heartbeat for the console's Live
-  indicator; the console sends `hello` on open and `next`/`prev`
-  commands back
-- Presenter: speaker-console button (monitor icon) and `S` key open the
-  console in a named popup window
-- Verified live across two tabs: presenter navigation updated the
-  console (counter, notes, both preview frames), and the console's Next
-  button advanced the presenter (`?s=3&st=0`), zero console errors
+The speaker console (a second window with notes, previews, and a timer
+synced over `BroadcastChannel`) was built, shipped, then removed at the
+owner's request: **present-only**. The presenter is the single
+presenting surface — no console route, no cross-window sync, no notes
+sidecar. `meta.notes` remains as deck metadata but is not surfaced in
+the presenter.
 
 ---
 
 ## 8 · Out of scope
 
 - ❌ PPTX / PDF / image export — presenter only, forever
+- ❌ Speaker console / second-window presenter — present-only by design
 - ❌ Real-time collaboration / co-editing (v1: one editor at a time)
 - ❌ Teams, orgs, billing
 - ❌ Server-side execution of user code
@@ -513,7 +503,7 @@ folder operations.
 
 ## 9 · Next step
 
-**Phase 10 — polish:** share links (`/share/[token]` read-only
+**Phase 9 — polish:** share links (`/share/[token]` read-only
 presenting for non-owners), a starter-template gallery, deck rename from
 the workspace, the legacy `/present` stub cleanup, a Playwright smoke
 test across auth → workspace → preview → presenter, and the authoring
