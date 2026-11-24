@@ -38,6 +38,28 @@ export interface DeckLayoutProps {
 /** Aspect ratio of the logical slide canvas. */
 export type SlideAspect = "16:9" | "4:3";
 
+/** Progress-bar appearance in the presenter. */
+export interface DeckProgressConfig {
+  /** Show the bar. */
+  show: boolean;
+  /** Pin it to the top or bottom edge. */
+  position: "top" | "bottom";
+  /** Bar height in pixels. */
+  height: number;
+  /** Filled portion color. */
+  color: string;
+  /** Unfilled track color. */
+  trackColor: string;
+}
+
+export const DEFAULT_DECK_PROGRESS: DeckProgressConfig = {
+  show: true,
+  position: "top",
+  height: 2,
+  color: "rgba(255, 255, 255, 0.7)",
+  trackColor: "rgba(255, 255, 255, 0.1)",
+};
+
 /** Deck-wide configuration — see `lib/deck.config.ts`. */
 export interface DeckConfig {
   /** Deck title — shown on the overview page and browser tab. */
@@ -48,4 +70,6 @@ export interface DeckConfig {
   defaultTransition: SlideTransition;
   /** Show slide numbers on the slide chrome. */
   slideNumbers: boolean;
+  /** Optional presenter progress-bar customization. */
+  progress?: Partial<DeckProgressConfig>;
 }

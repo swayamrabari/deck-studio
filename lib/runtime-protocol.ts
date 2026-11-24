@@ -3,6 +3,8 @@
  * sandboxed runtime frame.
  */
 
+import type { DeckProgressConfig } from "./types";
+
 export type RuntimeInMessage =
   | { type: "deck:ping" }
   | {
@@ -18,7 +20,11 @@ export type RuntimeInMessage =
 
 export type RuntimeOutMessage =
   | { type: "deck:frame-ready" }
-  | { type: "deck:ready"; slideCount: number }
+  | {
+      type: "deck:ready";
+      slideCount: number;
+      progress: DeckProgressConfig;
+    }
   | { type: "deck:steps"; index: number; totalSteps: number }
   | { type: "deck:error"; message: string };
 

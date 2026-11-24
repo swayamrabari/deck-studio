@@ -2,12 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { cn } from "cn";
 import {
   slideFilePaths,
   slideIndexForPath,
   type RuntimeInMessage,
   type RuntimeOutMessage,
 } from "@/lib/runtime-protocol";
+
+/** Reads the authored aspect straight from the deck config source. */
+function previewAspect(files: Record<string, string>): "16:9" | "4:3" {
+  const source = files["deck/deck.config.ts"] ?? "";
+  return /aspect\s*:\s*["']4:3["']/.test(source) ? "4:3" : "16:9";
+}
 
 /**
  * The workspace's live preview: a sandboxed same-origin iframe running the
@@ -27,6 +34,7 @@ export function DeckPreview({
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slideCount, setSlideCount] = useState<number | null>(null);
+  const aspect = previewAspect(files);
 
   const slideIndex = useMemo(() => {
     const slides = slideFilePaths(files);
@@ -96,7 +104,13 @@ export function DeckPreview({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-      <div className="aspect-video w-full shrink-0 overflow-hidden rounded-md border border-border bg-deck-bg">
+      <div
+        data-aspect={aspect}
+        className={cn(
+          "w-full shrink-0 overflow-hidden rounded-md border border-border bg-deck-bg",
+          aspect === "4:3" ? "aspect-[4/3]" : "aspect-video"
+        )}
+      >
         <iframe
           ref={frameRef}
           src="/runtime"

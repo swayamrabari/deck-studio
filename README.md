@@ -52,10 +52,23 @@ styles, media, and components stay).
 
 ### Config
 
-`deck/deck.config.ts` sets behavior only: `aspect` (`16:9` → 1280×720,
+`deck/deck.config.ts` sets behavior: `aspect` (`16:9` → 1280×720,
 `4:3` → 960×720), `defaultTransition`, and `slideNumbers` (passed to your
-`layout.tsx`). **There is no theme or font config** — colors, surfaces,
-typography, and fonts all live in `deck/styles.css`.
+`layout.tsx`). The workspace preview box follows `aspect` automatically.
+**There is no theme or font config** — colors, surfaces, typography, and
+fonts all live in `deck/styles.css`.
+
+The presenter progress bar is optional and configurable:
+
+```ts
+progress: {
+  show: true,
+  position: "top",              // "top" | "bottom"
+  height: 2,                    // pixels
+  color: "rgba(255,255,255,0.7)",
+  trackColor: "rgba(255,255,255,0.1)",
+},
+```
 
 ### Media
 

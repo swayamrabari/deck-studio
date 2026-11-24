@@ -5,7 +5,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import * as Slides from "@/components/slides";
 import { slideFilePaths } from "./runtime-protocol";
-import type { DeckConfig, SlideMeta } from "./types";
+import type { DeckConfig, DeckProgressConfig, SlideMeta } from "./types";
 
 /**
  * In-browser deck compiler: TSX → CommonJS (Babel standalone), a virtual
@@ -31,19 +31,35 @@ export interface CompiledDeck {
       }>
     | null;
   /** Deck config from `deck/deck.config.ts` (defaults applied). */
-  config: DeckConfig;
+  config: DeckConfig & { progress: DeckProgressConfig };
   /** Concatenated deck CSS (`deck/styles.css` + other top-level `*.css`). */
   styles: string;
 }
 
-const DEFAULT_CONFIG: DeckConfig = {
-  title: "",
-  aspect: "16:9",
-  defaultTransition: "fade",
-  slideNumbers: true,
-};
+function normalizeProgress(raw: unknown): DeckProgressConfig {
+  const source = (raw ?? {}) as Partial<DeckProgressConfig>;
+  const height =
+    typeof source.height === "number" && Number.isFinite(source.height)
+      ? Math.min(Math.max(source.height, 0), 24)
+      : 2;
+  return {
+    show: typeof source.show === "boolean" ? source.show : true,
+    position: source.position === "bottom" ? "bottom" : "top",
+    height,
+    color:
+      typeof source.color === "string" && source.color.length <= 80
+        ? source.color
+        : "rgba(255, 255, 255, 0.7)",
+    trackColor:
+      typeof source.trackColor === "string" && source.trackColor.length <= 80
+        ? source.trackColor
+        : "rgba(255, 255, 255, 0.1)",
+  };
+}
 
-function normalizeConfig(raw: unknown): DeckConfig {
+function normalizeConfig(
+  raw: unknown
+): DeckConfig & { progress: DeckProgressConfig } {
   const source = (raw ?? {}) as Partial<DeckConfig>;
   const aspect = source.aspect === "4:3" ? "4:3" : "16:9";
   const transition = ["fade", "slide", "zoom"].includes(
@@ -57,6 +73,7 @@ function normalizeConfig(raw: unknown): DeckConfig {
     defaultTransition: transition,
     slideNumbers:
       typeof source.slideNumbers === "boolean" ? source.slideNumbers : true,
+    progress: normalizeProgress(source.progress),
   };
 }
 
@@ -189,7 +206,7 @@ export function compileDeck(
       : null;
 
   // Deck-wide config drives aspect, theme, fonts, and chrome.
-  let config = DEFAULT_CONFIG;
+  let config = normalizeConfig(undefined);
   if (files["deck/deck.config.ts"] !== undefined) {
     try {
       const configModule = requireModule("deck/deck.config.ts") as {

@@ -542,9 +542,12 @@ folder operations.
 
 **Config & media — what exists (post-Phase 9)**
 
-- `deck.config.ts` holds behavior only: aspect (16:9/4:3 canvas),
-  `defaultTransition`, and `slideNumbers` passed to `layout.tsx`. **No
-  theme, palette, or fonts** — those live in `deck/styles.css`
+- `deck.config.ts` holds behavior: aspect (16:9/4:3 canvas), 
+  `defaultTransition`, `slideNumbers` passed to `layout.tsx`, and optional
+  `progress` (show, top/bottom, height, fill, track). **No theme, palette,
+  or fonts** - those live in `deck/styles.css`. The workspace preview box
+  follows the configured aspect; the presenter renders the progress bar
+  from the deck config
 - Media pipeline: `deck_media` table (BLOB, 8 MB cap, image mimes),
   `GET/POST /api/decks/[id]/media` (list/upload), `GET/DELETE
   /api/decks/[id]/media/[name]` (serve/remove); workspace tree shows a

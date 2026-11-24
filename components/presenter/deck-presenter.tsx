@@ -12,6 +12,7 @@ import {
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "cn";
+import { DEFAULT_DECK_PROGRESS } from "@/lib/types";
 import type {
   RuntimeInMessage,
   RuntimeOutMessage,
@@ -46,6 +47,7 @@ export function DeckPresenter({
   const [fading, setFading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [progressConfig, setProgressConfig] = useState(DEFAULT_DECK_PROGRESS);
 
   /** Fragment counts discovered per slide (for backward navigation). */
   const stepsBySlide = useRef(new Map<number, number>());
@@ -86,6 +88,7 @@ export function DeckPresenter({
       } else if (message.type === "deck:ready") {
         setError(null);
         setSlideCount(message.slideCount);
+        setProgressConfig(message.progress ?? DEFAULT_DECK_PROGRESS);
         setIndex((previous) => Math.min(previous, message.slideCount - 1));
       } else if (message.type === "deck:steps") {
         stepsBySlide.current.set(message.index, message.totalSteps);
@@ -279,16 +282,32 @@ export function DeckPresenter({
       ? `${String(index + 1).padStart(2, "0")} / ${String(slideCount).padStart(2, "0")}${
           totalSteps > 0 ? ` · ${step}/${totalSteps}` : ""
         }`
-      : "— / —";
+      : "– / –";
+
+  const progressBar = progressConfig.show ? (
+    <div
+      aria-hidden
+      data-slot="deck-progress"
+      data-position={progressConfig.position}
+      className="w-full shrink-0"
+      style={{
+        height: progressConfig.height,
+        backgroundColor: progressConfig.trackColor,
+      }}
+    >
+      <div
+        className="h-full transition-[width] duration-200"
+        style={{
+          width: `${progress}%`,
+          backgroundColor: progressConfig.color,
+        }}
+      />
+    </div>
+  ) : null;
 
   return (
     <div ref={rootRef} className="flex h-dvh w-full flex-col bg-black">
-      <div className="h-0.5 w-full shrink-0 bg-white/10">
-        <div
-          className="h-full bg-white/70 transition-[width] duration-200"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+      {progressConfig.position === "top" ? progressBar : null}
 
       <div className="relative min-h-0 flex-1">
         <iframe
@@ -357,6 +376,7 @@ export function DeckPresenter({
           </Button>
         </div>
       </div>
+      {progressConfig.position === "bottom" ? progressBar : null}
     </div>
   );
 }

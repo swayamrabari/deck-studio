@@ -12,6 +12,7 @@ import { SlideCanvas } from "@/components/deck/slide-canvas";
 import { SlideStepProvider } from "@/components/slides";
 import { setMediaBase } from "@/components/slides/media";
 import { compileDeck, type CompiledDeck } from "@/lib/runtime-compiler";
+import { DEFAULT_DECK_PROGRESS } from "@/lib/types";
 import type {
   RuntimeInMessage,
   RuntimeOutMessage,
@@ -155,7 +156,11 @@ export default function RuntimeFramePage() {
           Math.min(Math.max(message.index, 0), compiled.slides.length - 1)
         );
         setStep(Math.max(message.step ?? 0, 0));
-        post({ type: "deck:ready", slideCount: compiled.slides.length });
+        post({
+          type: "deck:ready",
+          slideCount: compiled.slides.length,
+          progress: compiled.config.progress ?? DEFAULT_DECK_PROGRESS,
+        });
       } catch (cause) {
         const messageText =
           cause instanceof Error ? cause.message : "Failed to compile the deck.";
