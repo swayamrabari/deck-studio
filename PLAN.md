@@ -571,6 +571,12 @@ folder operations.
   styles the fallback shell and runtime error overlay. Verified: editing
   the deck file changes the frame body/stage exactly, the frame has no
   app tokens, and there is no platform canvas stylesheet
+- **Starter tour & start fresh**: new decks open with three user-facing
+  slides (Welcome, How it works, Get started), and the workspace
+  `+` menu can clear the tour down to one clean slide while keeping the
+  layout, styles, media, and components. New slides are named in a
+  dialog and slide folders expose a rename action that preserves the
+  number prefix
 - Formatting: Prettier standalone loaded lazily in the workspace —
   **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
   format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors

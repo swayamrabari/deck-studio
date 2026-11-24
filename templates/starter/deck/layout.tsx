@@ -13,7 +13,7 @@ export default function DeckLayout({
   total,
 }: DeckLayoutProps) {
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-deck-bg px-24 pt-16 pb-10 text-deck-fg">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-deck-bg px-24 pt-14 pb-8 text-deck-fg">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-56 -right-48 size-[38rem] rounded-full bg-deck-accent/10 blur-[140px]"
@@ -32,7 +32,7 @@ export default function DeckLayout({
         {children}
       </div>
 
-      <div className="relative mt-10 flex items-center justify-between border-t border-deck-surface/70 pt-5 font-mono text-xs uppercase tracking-[0.22em] text-deck-muted">
+      <div className="relative mt-8 flex items-center justify-between border-t border-deck-surface/70 pt-5 font-mono text-xs uppercase tracking-[0.22em] text-deck-muted">
         <span className="flex items-center gap-2.5">
           <span className="size-1.5 rounded-full bg-deck-accent" />
           {deck.title}

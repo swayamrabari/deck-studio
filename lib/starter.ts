@@ -14,7 +14,7 @@ import { deckFiles, decks } from "@/db/schema";
  * account begins with a working, editable deck.
  */
 
-export const STARTER_TITLE = "Slides as code";
+export const STARTER_TITLE = "My presentation";
 
 /** The deck's single styles file (part of the deck contract). */
 export const STYLES_PATH = "deck/styles.css";

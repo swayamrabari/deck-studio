@@ -10,6 +10,7 @@ import {
   PlayIcon,
   PlusIcon,
   PresentationIcon,
+  RotateCcwIcon,
   XIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -102,6 +104,7 @@ export default function NewSlide() {
 
 type WorkspaceDialog =
   | { kind: "new-slide" }
+  | { kind: "start-fresh" }
   | { kind: "new-file" }
   | { kind: "rename"; path: string; folder: boolean }
   | { kind: "delete"; path: string; folder: boolean }
@@ -320,7 +323,85 @@ export function DeckWorkspace({
     }
   }
 
+  async function startFresh(name: string) {
+    setPending(true);
+    try {
+      const folders = new Set<string>();
+      for (const path of Object.keys(files)) {
+        const match = /^deck\/(\d+-[^/]+)\/page\.tsx$/.exec(path);
+        if (match) folders.add(`deck/${match[1]}`);
+      }
+
+      const isRemoved = (path: string) =>
+        Array.from(folders).some(
+          (folder) => path === folder || path.startsWith(`${folder}/`)
+        );
+
+      for (const folder of folders) {
+        const res = await fetch(
+          `/api/decks/${deckId}/files?path=${encodeURIComponent(folder)}&recursive=1`,
+          { method: "DELETE" }
+        );
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          setError(data?.error ?? "Could not clear the slides.");
+          return;
+        }
+      }
+
+      for (const [path, timer] of timersRef.current) {
+        if (isRemoved(path)) {
+          clearTimeout(timer);
+          timersRef.current.delete(path);
+        }
+      }
+
+      const remaining = Object.fromEntries(
+        Object.entries(files).filter(([path]) => !isRemoved(path))
+      );
+      const title = name.trim() || "Untitled";
+      const base = `deck/01-${slideSlug(title)}`;
+
+      let path = `${base}/page.tsx`;
+      let attempt = 2;
+      while (remaining[path]) {
+        path = `${base}-${attempt}/page.tsx`;
+        attempt++;
+      }
+
+      const content = newSlideContent(title);
+      const res = await fetch(`/api/decks/${deckId}/files`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, content }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(data?.error ?? "Could not create the fresh slide.");
+        return;
+      }
+
+      const next = { ...remaining, [path]: content };
+      setFiles(next);
+      setSavedFiles(next);
+      setOpenPaths([path]);
+      setActivePath(path);
+      setDialog(null);
+      setError(null);
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function renamePath(from: string, to: string) {
+    if (from === to) {
+      setDialog(null);
+      return;
+    }
     setPending(true);
     try {
       const res = await fetch(`/api/decks/${deckId}/files`, {
@@ -421,6 +502,15 @@ export function DeckWorkspace({
     ? `${nextSlide}-${slideSlug(draftValue)}`
     : `${nextSlide}-…`;
 
+  const deckSlideCount = new Set(
+    Object.keys(files)
+      .map((path) => /^deck\/(\d+-[^/]+)\/page\.tsx$/.exec(path)?.[1])
+      .filter((folder): folder is string => Boolean(folder))
+  ).size;
+  const freshSlideFolder = draftValue.trim()
+    ? `01-${slideSlug(draftValue)}`
+    : "01-…";
+
   const renameParent =
     dialog?.kind === "rename"
       ? dialog.path.split("/").slice(0, -1).join("/")
@@ -520,6 +610,17 @@ export function DeckWorkspace({
                 >
                   <ImagePlusIcon />
                   Upload media…
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    setDraftValue("Untitled");
+                    setDialog({ kind: "start-fresh" });
+                  }}
+                >
+                  <RotateCcwIcon />
+                  Start fresh…
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -673,6 +774,61 @@ export function DeckWorkspace({
           event.target.value = "";
         }}
       />
+
+      <Dialog
+        open={dialog?.kind === "start-fresh"}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start fresh</DialogTitle>
+            <DialogDescription>
+              This removes {deckSlideCount} slide
+              {deckSlideCount === 1 ? "" : "s"} and replaces them with one
+              fresh slide. Layout, styles, media, and components stay.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="fresh-slide-name">First slide name</Label>
+            <Input
+              id="fresh-slide-name"
+              value={draftValue}
+              autoFocus
+              placeholder="Untitled"
+              className="text-sm"
+              onChange={(event) => setDraftValue(event.target.value)}
+              onFocus={(event) => event.target.select()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !pending) {
+                  event.preventDefault();
+                  void startFresh(draftValue);
+                }
+              }}
+            />
+            <p className="truncate font-ui-mono text-[10px] text-muted-foreground">
+              deck/{freshSlideFolder}/page.tsx
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialog(null)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void startFresh(draftValue)}
+              disabled={pending}
+            >
+              {pending ? "Starting…" : "Start fresh"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={dialog?.kind === "new-slide"}
