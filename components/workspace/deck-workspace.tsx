@@ -531,7 +531,11 @@ export function DeckWorkspace({
                 activePath={activePath}
                 onOpen={openFile}
                 onRename={(path, folder) => {
-                  setDraftValue(folder ? baseName(path) : path);
+                  setDraftValue(
+                    folder
+                      ? baseName(path).replace(/^\d+-/, "")
+                      : path
+                  );
                   setDialog({ kind: "rename", path, folder });
                 }}
                 onDelete={(path, folder) => setDialog({ kind: "delete", path, folder })}
@@ -745,16 +749,16 @@ export function DeckWorkspace({
         open={dialog?.kind === "rename"}
         title={
           dialog?.kind === "rename" && dialog.folder
-            ? "Rename folder"
+            ? "Rename slide"
             : "Rename file"
         }
         description={
           dialog?.kind === "rename" && dialog.folder
-            ? "Renames the folder and every file inside it. Slide folders keep their number prefix."
+            ? "Renames the slide folder and every file inside it. The number stays."
             : "Renames the file in place."
         }
         label={
-          dialog?.kind === "rename" && dialog.folder ? "Folder name" : "Path"
+          dialog?.kind === "rename" && dialog.folder ? "Slide name" : "Path"
         }
         preview={
           renameFolderPreview ? (
