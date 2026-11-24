@@ -1,12 +1,12 @@
-# PLAN — pptxgen · Code-First Presentation Platform
+# PLAN — Deck Studio (née pptxgen) · Code-First Presentation Platform
 
 > **Users log in, create decks in the browser, and author slides as React
 > components in a Next.js-style project structure — through a code-editor
 > interface with live preview — and present from the same app.** No export
 > pipeline, ever.
 
-*Working name `pptxgen` — kept from the folder. Ironic: this platform never
-generates a `.pptx`. Rename freely; nothing depends on the name.*
+*Working name was `pptxgen` — kept from the folder. Ironic: this platform never
+generates a `.pptx`. Renamed to **Deck Studio**; nothing depends on the name.*
 
 ---
 

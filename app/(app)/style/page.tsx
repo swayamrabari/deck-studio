@@ -33,7 +33,7 @@ import {
 import { fontRegistry } from "@/lib/fonts";
 
 export const metadata: Metadata = {
-  title: "Design system — pptxgen",
+  title: "Design system — Deck Studio",
   description: "Studio tokens, typography, and UI primitives.",
 };
 
@@ -361,7 +361,7 @@ export default function StylePage() {
       </section>
 
       <footer className="border-t border-border pt-6 text-xs text-muted-foreground">
-        pptxgen · always-dark studio · tokens over hues — every chrome
+        Deck Studio · always-dark studio · tokens over hues — every chrome
         surface reads only these tokens and primitives.
       </footer>
     </div>

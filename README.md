@@ -1,11 +1,12 @@
-# pptxgen
+# Deck Studio
 
-A **code-first presentation platform**. Users log in, create decks in the
-browser through a code-editor interface, author slides as React components
-in a Next.js-style project structure — and present from the same app.
-No export pipeline, ever.
+A **code-first presentation platform**. Log in, create decks in the
+browser through a code-editor interface, author slides as React
+components in a Next.js-style project structure — and present from the
+same app. No export pipeline, ever.
 
-> Working name — despite the folder, this project never generates a `.pptx`.
+*Previously the `pptxgen` working name — despite the folder and the
+package name, this project never generates a `.pptx`.*
 
 **Status:** Phases 0–8 complete — log in → create a deck → code it with
 live preview (CSS-owned styling, config aspect, media uploads) → present
@@ -33,7 +34,7 @@ npm run dev
 | `/` | Landing (redirects to your decks when signed in) | ✅ |
 | `/login` | Token auth (email + password, rate-limited) | ✅ |
 | `/signup` | Registrations **closed by default** — set `ALLOW_SIGNUPS=1` to re-open | 🔒 |
-| `/decks` | Dashboard — your decks, named New deck (starter template), rename/delete | ✅ |
+| `/decks` | Dashboard — your decks (seeded from the starter template), rename/delete | ✅ |
 | `/decks/[id]/edit` | Workspace — file tree, media, CodeMirror 6, autosave, **live preview**, **resizable/collapsible panes**, named new slides, slide-folder rename, project rename | ✅ |
 | `/decks/[id]/present` | Hosted presenter — keyboard, fullscreen, `?s=`/`?st=` deep links, progress bar, reveal steps | ✅ |
 | `/style` | Design system specimen — tokens, primitives, all 14 fonts | ✅ |
@@ -48,12 +49,11 @@ buttons sit on the tree header, and hovering any folder row reveals a
 **+** that opens a scoped new-file dialog (the folder is a fixed prefix
 in the input — you only type the name). Slide folders can keep private
 helpers next to their `page.tsx`, and an open slide's tab shows its
-presentation number (`page.tsx 01`). New
-folders appear in the tree immediately and become permanent with the
-first file added inside. The platform stores this structure in the
-database; the browser editor shows it as a file tree and a sandboxed
-in-browser runtime compiles and renders it (transpile → virtual modules →
-iframe).
+presentation number (`page.tsx 01`). New folders appear in the tree
+immediately and become permanent with the first file added inside. The
+platform stores this structure in the database; the browser editor shows
+it as a file tree and a sandboxed in-browser runtime compiles and renders
+it (transpile → virtual modules → iframe).
 
 **Full CSS isolation:** the runtime runs in its own root layout with
 **none of the app's CSS**. The iframe body, frame, canvas, and stage are
@@ -74,7 +74,8 @@ styles, media, and components stay).
 `4:3` → 960×720) and `slideNumbers` (passed to your `layout.tsx`). The
 workspace preview box follows `aspect` automatically.
 **There is no theme or font config** — colors, surfaces, typography, and
-fonts all live in `deck/styles.css`.
+fonts all live in `deck/styles.css`. Slide changes are instant cuts;
+there are no transitions.
 
 The presenter progress bar is optional and configurable:
 
@@ -204,25 +205,20 @@ server-side behind the auth routes).
    the runtime iframe, editor, and presenter are unchanged.
 
 **Keep-alive (deploy-and-forget):** `vercel.json` schedules Vercel Cron
-to hit `/api/health` once a day (Hobby plan allows one daily cron) —
-the route runs a real database query, which counts as Supabase
-activity, so the project never idles into a pause. This needs no
-GitHub activity and nothing to maintain. The GitHub workflow
-(`.github/workflows/db-keepalive.yml`) is an optional manual backup —
-GitHub auto-disables scheduled workflows after ~60 days without
-commits, which is why the Vercel cron is the primary.
+to hit `/api/health` once a day (Hobby plan allows one daily cron) — the
+route runs a real database query, which counts as Supabase activity, so
+the project never idles into a pause. This needs no GitHub activity and
+nothing to maintain. The GitHub workflow
+(`.github/workflows/db-keepalive.yml`) is an optional manual backup: if
+you use it, add the repo secret `SUPABASE_DB_URL` (the same
+transaction-pooler string) and note that GitHub auto-disables scheduled
+workflows after ~60 days without commits — which is why the Vercel cron
+is the primary.
 
-Notes: migrations are applied with `npm run db:migrate` (there is no
+**Notes:** migrations are applied with `npm run db:migrate` (there is no
 runtime migrator on serverless); generate new ones after schema edits
 with `npm run db:generate`. TLS is enforced automatically — if the URL
-lacks `sslmode`, the app appends `sslmode=require`. Supabase's free
-tier pauses idle projects after about a week — this repo ships a
-scheduled GitHub workflow (`.github/workflows/db-keepalive.yml`) that
-connects and queries the database once a day so the project stays
-active. After enabling Actions, add the repo secret
-`SUPABASE_DB_URL` (same transaction-pooler string as Vercel's
-`DATABASE_URL`), then run **Supabase keep-alive** manually once from the
-Actions tab to confirm it works. The schedule is UTC — edit the `cron:`
-line to your preferred time.
+lacks `sslmode`, the app appends `sslmode=require`. The schedule is UTC
+— edit the `cron:` line to your preferred time.
 
 Details, architecture, and the phase-by-phase roadmap: **[PLAN.md](./PLAN.md)**.

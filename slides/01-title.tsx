@@ -9,7 +9,7 @@ export default function TitleSlide() {
   return (
     <div className="flex h-full w-full flex-col justify-center bg-deck-bg px-24 text-deck-fg">
       <p className="font-mono text-sm uppercase tracking-[0.35em] text-deck-muted">
-        pptxgen · demo deck
+        Deck Studio · demo deck
       </p>
       <h1 className="mt-6 font-display text-8xl font-medium tracking-tight">
         Slides as code.

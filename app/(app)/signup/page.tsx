@@ -16,7 +16,7 @@ import { requireUser, signupsOpen } from "@/lib/auth";
 export const instant = false;
 
 export const metadata: Metadata = {
-  title: "Create account — pptxgen",
+  title: "Create account — Deck Studio",
 };
 
 export default async function SignupPage() {

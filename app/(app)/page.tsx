@@ -16,7 +16,7 @@ export default async function Home() {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-center px-6 text-center">
       <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-        pptxgen · code-first decks
+        Deck Studio · code-first decks
       </p>
       <h1 className="mt-6 text-5xl font-medium tracking-tight text-balance sm:text-6xl">
         Slides as code.
