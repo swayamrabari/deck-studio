@@ -104,20 +104,22 @@ export function DeckPreview({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-      <div
-        data-aspect={aspect}
-        className={cn(
-          "w-full shrink-0 overflow-hidden rounded-md border border-border bg-deck-bg",
-          aspect === "4:3" ? "aspect-[4/3]" : "aspect-video"
-        )}
-      >
-        <iframe
-          ref={frameRef}
-          src="/runtime"
-          title="Deck preview"
-          sandbox="allow-scripts allow-same-origin"
-          className="h-full w-full border-0"
-        />
+      <div className="w-full shrink-0 rounded-lg border border-border bg-card p-2">
+        <div
+          data-aspect={aspect}
+          className={cn(
+            "w-full overflow-hidden",
+            aspect === "4:3" ? "aspect-[4/3]" : "aspect-video"
+          )}
+        >
+          <iframe
+            ref={frameRef}
+            src="/runtime"
+            title="Deck preview"
+            sandbox="allow-scripts allow-same-origin"
+            className="h-full w-full border-0"
+          />
+        </div>
       </div>
       {error ? (
         <p className="max-h-28 overflow-auto font-ui-mono text-[10px] leading-relaxed whitespace-pre-wrap text-destructive">
