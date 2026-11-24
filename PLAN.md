@@ -567,18 +567,15 @@ folder operations.
   palette in `@theme`; verified the frame has none of the app's tokens
   (`--background` absent) while app pages keep them, and deck brand
   overrides still win inside the frame
-- **Runtime root styles live in CSS**: `app/(runtime)/runtime.css` owns
-  only the structural frame (root, canvas box, fallback shell, error
-  panel, layered reset). It paints **nothing** for the deck: no
-  background, color, border, or type. The canvas root uses
-  `components/deck/slide-canvas.module.css` for structure and exposes
-  stable hooks (`.deck-frame`, `.deck-canvas`, `.deck-canvas-stage`), so
-  `deck/styles.css` can override or paint any of them. Fixed the
-  Turbopack CSS rule so `.module.css` files are scoped by Next instead of
-  being treated as global Tailwind inputs. Verified: the frame's linked
-  root CSS has no app tokens, the stage computes to transparent with no
-  border/color defaults, and a deck-level `.deck-canvas-stage` rule takes
-  full control of background, color, and border
+- **Deck owns its CSS**: the iframe body, `.deck-frame`,
+  `.deck-canvas`, and `.deck-canvas-stage` rules live as active, editable
+  CSS at the top of `deck/styles.css` (marked `@deck-base`). The platform
+  contributes **no** visual defaults and no canvas stylesheet; older
+  decks get the same block prepended once when opened. `runtime.css` now
+  only styles the fallback shell and runtime error overlay. Verified: the
+  frame's only stylesheet is the deck file plus font assets, the stage
+  computes from the deck's own rule, and there are no app tokens or
+  module styles in the document
 - Formatting: Prettier standalone loaded lazily in the workspace —
   **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
   format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors

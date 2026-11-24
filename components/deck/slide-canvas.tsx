@@ -4,16 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { canvasSize } from "@/lib/canvas";
 
-import styles from "./slide-canvas.module.css";
-
 /**
  * The fixed logical canvas. Renders slide content at the authored
  * dimensions (configurable per deck via aspect) and scales it to fit any
  * container, centered — letterboxing exactly like a real presenter.
  *
- * Root styling lives in `slide-canvas.module.css` (not in app utilities),
- * so the canvas renders identically in app thumbnails and the isolated
- * deck runtime.
+ * The component only emits stable class names (`deck-canvas` /
+ * `deck-canvas-stage`); all styling, including the frame, lives in the
+ * deck's own `deck/styles.css`.
  */
 export function SlideCanvas({
   children,
@@ -54,7 +52,7 @@ export function SlideCanvas({
     <div
       ref={containerRef}
       data-slot="slide-canvas"
-      className={`${styles.canvas} deck-canvas ${className ?? ""}`}
+      className={`deck-canvas ${className ?? ""}`}
     >
       <div
         data-slot="slide-canvas-inner"
@@ -67,7 +65,7 @@ export function SlideCanvas({
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}
-        className={`${styles.stage} deck-canvas-stage`}
+        className="deck-canvas-stage"
       >
         {children}
       </div>

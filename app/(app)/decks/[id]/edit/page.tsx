@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { deckFiles, deckMedia } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { getOwnedDeck } from "@/lib/decks";
-import { ensureDeckStylesFile, STYLES_PATH } from "@/lib/starter";
+import { ensureDeckStyles, STYLES_PATH } from "@/lib/starter";
 
 // Auth-gated: reads the session cookie, so the route blocks on the server.
 export const instant = false;
@@ -32,10 +32,10 @@ export default async function DeckEditPage({
     rows.map((row) => [row.path, row.content])
   );
 
-  // Every deck gets exactly one brand-styles file (backfilled if missing).
-  const seededStyles = await ensureDeckStylesFile(deck.id);
-  if (seededStyles !== null) {
-    initialFiles[STYLES_PATH] = seededStyles;
+  // Every deck owns its single styles file, with the editable frame block.
+  const ensuredStyles = await ensureDeckStyles(deck.id, initialFiles[STYLES_PATH]);
+  if (ensuredStyles !== null) {
+    initialFiles[STYLES_PATH] = ensuredStyles;
   }
 
   const mediaRows = await db

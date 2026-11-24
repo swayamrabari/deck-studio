@@ -38,11 +38,12 @@ shows it as a file tree and a sandboxed in-browser runtime compiles and
 renders it (transpile → virtual modules → iframe).
 
 **Full CSS isolation:** the runtime runs in its own root layout with
-**none of the app's CSS**. The frame contributes only structure — no
-background, color, border, or type — and deck Tailwind is compiled
-inside the frame. `deck/styles.css` paints the deck and can target the
-stable hooks `.deck-frame`, `.deck-canvas`, and `.deck-canvas-stage`, so
-app chrome and deck styles share no stylesheet and cannot overlap.
+**none of the app's CSS**. The iframe body, frame, canvas, and stage are
+styled by active, editable rules at the top of the deck's own
+`styles.css`; the platform supplies no visual defaults and no canvas
+stylesheet. Tailwind utilities are compiled inside the frame from deck
+code, so app chrome and deck styles share no stylesheet and cannot
+overlap.
 
 ### Config
 
@@ -80,11 +81,30 @@ Decks that don't import icons never download the library. Icons inherit
 
 ### Styles
 
-`deck/styles.css` is the deck's visual source of truth, injected into the
-preview/presenter frame. The runtime paints no background, color, border,
-or type of its own — the deck owns all of it. **Override the deck tokens
-at `:root` to rebrand the whole deck**; user styles load after the theme,
-so they win:
+`deck/styles.css` is the deck's visual source of truth. The frame itself
+— `html`, `body`, `.deck-frame`, `.deck-canvas`, `.deck-canvas-stage` —
+is written as **active, editable CSS at the top of that file** (marked
+`@deck-base`). The platform injects no background, color, border, type,
+or canvas stylesheet. Edit or delete those rules like any other CSS:
+
+```css
+/* @deck-base:start — this is the deck's frame. Edit it freely. */
+html,
+body { height: 100%; margin: 0; }
+body { overflow: hidden; background: #000; }
+
+.deck-frame { position: relative; width: 100%; height: 100dvh; }
+.deck-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.deck-canvas-stage {
+  overflow: hidden;
+  background: var(--color-deck-bg);
+  color: var(--color-deck-fg);
+}
+/* @deck-base:end */
+```
+
+**Rebranding** works by overriding the deck tokens or the frame rules
+directly; this file loads after the deck config tokens, so it wins:
 
 ```css
 :root {
@@ -93,18 +113,12 @@ so they win:
   --color-deck-accent: #ff5c00;
 }
 
-.deck-canvas-stage {
-  background: var(--color-deck-bg);
-  color: var(--color-deck-fg);
-}
-
 .eyebrow { font-family: var(--font-mono); letter-spacing: 0.35em; }
 ```
 
-Stable frame hooks: `.deck-frame` (viewport), `.deck-canvas` (measured
-box), `.deck-canvas-stage` (the scaled logical slide). Every deck has
-`deck/styles.css` (older decks get it backfilled on open), and the runtime
-accepts any top-level `deck/*.css` as well.
+Every deck has this file. Older decks get the `@deck-base` block
+prepended once when opened, and the runtime accepts any top-level
+`deck/*.css` as well.
 
 ### Formatting
 

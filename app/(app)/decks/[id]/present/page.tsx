@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { deckFiles } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { getOwnedDeck } from "@/lib/decks";
+import { ensureDeckStyles, STYLES_PATH } from "@/lib/starter";
 
 // Auth-gated: reads the session cookie, so the route blocks on the server.
 export const instant = false;
@@ -31,6 +32,15 @@ export default async function DeckPresentPage({
   const initialFiles = Object.fromEntries(
     rows.map((row) => [row.path, row.content])
   );
+
+  // Presenting an older deck still gets the editable frame block.
+  const ensuredStyles = await ensureDeckStyles(
+    deck.id,
+    initialFiles[STYLES_PATH]
+  );
+  if (ensuredStyles !== null) {
+    initialFiles[STYLES_PATH] = ensuredStyles;
+  }
 
   const query = await searchParams;
   const rawSlide = Array.isArray(query.s) ? query.s[0] : query.s;

@@ -16,8 +16,18 @@ import { deckFiles, decks } from "@/db/schema";
 
 export const STARTER_TITLE = "Slides as code";
 
-/** The deck's single brand-styles file (part of the deck contract). */
+/** The deck's single styles file (part of the deck contract). */
 export const STYLES_PATH = "deck/styles.css";
+
+const STYLES_TEMPLATE_PATH = path.join(
+  process.cwd(),
+  "templates",
+  "starter",
+  STYLES_PATH
+);
+
+const BASE_START = "/* @deck-base:start";
+const BASE_END = "/* @deck-base:end */";
 
 export type StarterFiles = Record<string, string>;
 
@@ -41,9 +51,11 @@ export async function readStarterFiles(): Promise<StarterFiles> {
   return files;
 }
 
-/** Creates a new deck owned by `userId`, seeded from the starter template. */export async function createDeckFromStarter(
+/** Creates a new deck owned by `userId`, seeded from the starter template. */
+export async function createDeckFromStarter(
   userId: string
-): Promise<{ id: string; title: string }> {  const id = randomUUID();
+): Promise<{ id: string; title: string }> {
+  const id = randomUUID();
   const now = new Date();
 
   await db.insert(decks).values({
@@ -70,9 +82,28 @@ export async function readStarterFiles(): Promise<StarterFiles> {
 }
 
 /**
- * Guarantees a deck has its single brand-styles file — backfills decks
- * created before the `styles.css` convention. Returns the seeded content
- * when it was just created, or null when the file already existed.
+ * The editable frame block at the top of the starter stylesheet. It is
+ * extracted verbatim so existing decks can receive exactly the same
+ * editable CSS as new decks.
+ */
+async function readDeckBaseCss(): Promise<string | null> {
+  let css: string;
+  try {
+    css = await readFile(STYLES_TEMPLATE_PATH, "utf8");
+  } catch {
+    return null;
+  }
+
+  const start = css.indexOf(BASE_START);
+  const end = css.indexOf(BASE_END);
+  if (start === -1 || end === -1) return null;
+  return css.slice(start, end + BASE_END.length).trim();
+}
+
+/**
+ * Guarantees a deck has its single styles file — backfills decks created
+ * before the `styles.css` convention. Returns the seeded content when it
+ * was just created, or null when the file already existed.
  */
 export async function ensureDeckStylesFile(
   deckId: string
@@ -96,4 +127,41 @@ export async function ensureDeckStylesFile(
     updatedAt: new Date(),
   });
   return css;
+}
+
+/**
+ * Prepends the deck-frame block to a stylesheet that predates it. The
+ * base is written into the deck file itself (not injected by the
+ * platform), so every rule is editable. Returns the new content when it
+ * changed, or null when the base is already present.
+ */
+export async function ensureDeckBaseCss(
+  deckId: string,
+  content: string
+): Promise<string | null> {
+  if (content.includes(BASE_START)) return null;
+
+  const base = await readDeckBaseCss();
+  if (!base) return null;
+
+  const next = `${base}\n\n${content.trimStart()}`;
+  await db
+    .update(deckFiles)
+    .set({ content: next, updatedAt: new Date() })
+    .where(
+      and(eq(deckFiles.deckId, deckId), eq(deckFiles.path, STYLES_PATH))
+    );
+  return next;
+}
+
+/**
+ * Ensures the deck's stylesheet exists and contains the editable frame
+ * block. Returns new content when the page should use it in memory.
+ */
+export async function ensureDeckStyles(
+  deckId: string,
+  current: string | undefined
+): Promise<string | null> {
+  if (current === undefined) return ensureDeckStylesFile(deckId);
+  return ensureDeckBaseCss(deckId, current);
 }

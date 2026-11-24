@@ -1,51 +1,16 @@
 /*
- * Runtime-only root CSS — structural frame only.
+ * Runtime infrastructure CSS — nothing here paints the deck.
  *
- * This file belongs to the deck frame and is loaded only by the
- * `(runtime)` root layout. It never imports the app's `globals.css`,
- * studio palette, or shadcn tokens.
- *
- * No visual defaults live here: background, color, border, type, and
- * layout are owned by the deck's own `deck/styles.css` and the classes
- * written in the deck. The stable hooks a deck can target are:
- *   .deck-frame          the viewport-sized frame
- *   .deck-canvas         the measured canvas box
- *   .deck-canvas-stage   the scaled logical slide
- *
- * The base reset lives inside `@layer base` on purpose: Tailwind's
- * browser build emits deck utilities in `@layer utilities`, which must
- * win over the reset (e.g. `border-2` after a global `border: 0`).
+ * The deck's own `deck/styles.css` owns the body, frame, canvas, stage,
+ * colors, and typography. This file only styles the fallback shell and
+ * the runtime error overlay, which are platform UI, never deck content.
  */
 
-@layer base {
-  html,
-  body {
-    height: 100%;
-    margin: 0;
-  }
-
-  body {
-    overflow: hidden;
-    /* Neutral letterbox behind the slide. A deck can override `body`
-       from `deck/styles.css` if it wants a different surround. */
-    background: #000;
-  }
-}
-
-/* Structural frame roots — no colors, borders, padding, or type. */
-.deck-frame {
-  position: relative;
-  width: 100%;
-  height: 100dvh;
-}
-
-/* Shown while no layout/slide is available. */
 .deck-slide-fallback {
   width: 100%;
   height: 100%;
 }
 
-/* Runtime error panel (frame infrastructure, not deck content). */
 .deck-error {
   position: absolute;
   right: 0;

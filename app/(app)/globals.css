@@ -73,6 +73,22 @@
   --color-deck-accent: #7aa2f7;
 }
 
+/* App-side slide canvas for the app's own previews. The isolated deck
+   runtime never loads this file; decks style these same hooks in their
+   own `deck/styles.css`. */
+.deck-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.deck-canvas-stage {
+  overflow: hidden;
+  background-color: var(--color-deck-bg);
+  color: var(--color-deck-fg);
+}
+
 /* ── Studio palette (dark-only, monochrome) ────────────────────────────
    Neutral grays only. Depth comes from hairlines and contrast, never
    hue. The deck on screen is the only thing allowed color. */
