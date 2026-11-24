@@ -38,7 +38,7 @@ function PresentStage() {
   return (
     <div className="flex h-dvh w-full flex-col bg-black">
       <div className="min-h-0 w-full flex-1">
-        <SlideCanvas className="h-full w-full">
+        <SlideCanvas>
           <Slide />
         </SlideCanvas>
       </div>

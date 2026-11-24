@@ -567,6 +567,16 @@ folder operations.
   palette in `@theme`; verified the frame has none of the app's tokens
   (`--background` absent) while app pages keep them, and deck brand
   overrides still win inside the frame
+- **Runtime root styles live in CSS**: `app/(runtime)/runtime.css` owns
+  the frame root, fallback, error panel, default deck tokens, and reset
+  (inside `@layer base`, so browser-Tailwind utilities win). The canvas
+  root moved to `components/deck/slide-canvas.module.css`; neither
+  depends on app utilities or shadcn tokens. Fixed the Turbopack CSS rule
+  so `.module.css` files are scoped by Next instead of being treated as
+  global Tailwind inputs. Verified: the frame's linked root CSS has no
+  `--background`/`--card` tokens, `deck-frame`/`deck-error`/canvas module
+  classes resolve, the 2px canvas frame uses the deck border token, and
+  `border-2`/`mt-10` utilities now win over the layered reset
 - Formatting: Prettier standalone loaded lazily in the workspace —
   **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
   format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors

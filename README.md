@@ -40,7 +40,9 @@ renders it (transpile → virtual modules → iframe).
 **Full CSS isolation:** the runtime runs in its own root layout with
 **none of the app's CSS** — deck Tailwind is compiled inside the frame
 and `styles.css` is injected there, so app chrome and deck styles share
-no stylesheet and can never overlap.
+no stylesheet and can never overlap. The runtime's own root classes live
+in `app/(runtime)/runtime.css`, and the canvas root uses a CSS Module —
+no app utilities or shadcn tokens are involved.
 
 ### Config
 

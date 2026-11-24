@@ -210,7 +210,7 @@ export default function RuntimeFramePage() {
   }, [config]);
 
   return (
-    <div className="relative h-dvh w-full">
+    <div className="deck-frame">
       <style type="text/tailwindcss" data-deck-theme>
         {frameCss}
       </style>
@@ -219,7 +219,6 @@ export default function RuntimeFramePage() {
         <style data-deck-styles>{deck.styles}</style>
       ) : null}
       <SlideCanvas
-        className="h-full w-full"
         width={canvasWidth}
         height={canvasHeight}
       >
@@ -245,7 +244,7 @@ export default function RuntimeFramePage() {
                   <Slide />
                 </Layout>
               ) : (
-                <div className="h-full w-full bg-deck-bg p-20 text-deck-fg">
+                <div className="deck-slide-fallback">
                   <Slide />
                 </div>
               )}
@@ -254,10 +253,8 @@ export default function RuntimeFramePage() {
         ) : null}
       </SlideCanvas>
       {error ? (
-        <div className="absolute inset-x-0 bottom-0 p-3">
-          <p className="max-h-32 overflow-auto rounded-md border border-white/20 bg-black/90 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-red-400">
-            {error}
-          </p>
+        <div className="deck-error">
+          <p className="deck-error-text">{error}</p>
         </div>
       ) : null}
     </div>

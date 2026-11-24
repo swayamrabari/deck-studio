@@ -44,7 +44,7 @@ export function SlideCard({
       >
         <div className="overflow-hidden rounded-lg border border-border bg-card transition-colors group-hover:border-foreground/25 group-focus-visible:border-foreground/40">
           <div className={canvasAspectClass}>
-            <SlideCanvas className="h-full w-full">
+            <SlideCanvas>
               {children}
             </SlideCanvas>
           </div>
@@ -67,7 +67,7 @@ export function SlideCard({
 
       <DialogContent className="w-[calc(100%-2rem)] p-3 sm:max-w-2xl">
         <div className={`${canvasAspectClass} overflow-hidden rounded-md border border-border bg-deck-bg`}>
-          <SlideCanvas className="h-full w-full">{children}</SlideCanvas>
+          <SlideCanvas>{children}</SlideCanvas>
         </div>
         <div className="flex items-center justify-between gap-3 px-1 pt-1">
           <p className="min-w-0 truncate text-sm font-medium">{title}</p>
