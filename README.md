@@ -8,7 +8,7 @@ No export pipeline, ever.
 > Working name — despite the folder, this project never generates a `.pptx`.
 
 **Status:** Phases 0–8 complete — log in → create a deck → code it with
-live preview (config-driven theme/aspect/fonts, media uploads) → present
+live preview (CSS-owned styling, config aspect, media uploads) → present
 fullscreen with reveal steps. Full scope, architecture, and roadmap in
 **[PLAN.md](./PLAN.md)**.
 
@@ -26,7 +26,7 @@ npm run dev
 | `/decks` | Dashboard — your decks, New deck (starter template) | ✅ |
 | `/decks/[id]/edit` | Workspace — file tree, media, CodeMirror 6, autosave, **live preview**, **resizable panes** | ✅ |
 | `/decks/[id]/present` | Hosted presenter — keyboard, fullscreen, `?s=`/`?st=` deep links, progress, fades, reveal steps | ✅ |
-| `/style` | Design system specimen — tokens, primitives, all 8 fonts | ✅ |
+| `/style` | Design system specimen — tokens, primitives, all 14 fonts | ✅ |
 | `/present` | Local presenter stub (transitional) | ✅ stub |
 
 ## The model
@@ -47,11 +47,10 @@ overlap.
 
 ### Config
 
-`deck/deck.config.ts` drives the runtime: `aspect` (`16:9` → 1280×720,
-`4:3` → 960×720), `theme` (`midnight` | `paper`), `fonts` (`display` /
-`body` / `mono` from the 14-family registry — **case-insensitive**, so
-`"sora"`, `"Sora"`, `"fira code"` all work), and `slideNumbers` (passed
-to your `layout.tsx`).
+`deck/deck.config.ts` sets behavior only: `aspect` (`16:9` → 1280×720,
+`4:3` → 960×720), `defaultTransition`, and `slideNumbers` (passed to your
+`layout.tsx`). **There is no theme or font config** — colors, surfaces,
+typography, and fonts all live in `deck/styles.css`.
 
 ### Media
 
@@ -81,40 +80,39 @@ Decks that don't import icons never download the library. Icons inherit
 
 ### Styles
 
-`deck/styles.css` is the deck's visual source of truth. The frame itself
-— `html`, `body`, `.deck-frame`, `.deck-canvas`, `.deck-canvas-stage` —
-is written as **active, editable CSS at the top of that file** (marked
-`@deck-base`). The platform injects no background, color, border, type,
-or canvas stylesheet. Edit or delete those rules like any other CSS:
+`deck/styles.css` is the deck's only visual source. The frame itself —
+`html`, `body`, `.deck-frame`, `.deck-canvas`, `.deck-canvas-stage` — is
+written as **active, editable CSS at the top of that file**, along with
+the deck's palette and font stacks. The platform injects no background,
+color, border, type, theme, config, or canvas stylesheet:
 
 ```css
-/* @deck-base:start — this is the deck's frame. Edit it freely. */
-html,
-body { height: 100%; margin: 0; }
-body { overflow: hidden; background: #000; }
+/* @deck-base:start v2 — this is the deck's frame and theme. */
+:root {
+  --deck-bg: #0b0e14;
+  --deck-surface: #131826;
+  --deck-fg: #e8ecf3;
+  --deck-muted: #9aa4b8;
+  --deck-accent: #7aa2f7;
 
-.deck-frame { position: relative; width: 100%; height: 100dvh; }
-.deck-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; }
+  --deck-font-display: "Space Grotesk", system-ui, sans-serif;
+  --deck-font-body: "Inter", system-ui, sans-serif;
+  --deck-font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
 .deck-canvas-stage {
   overflow: hidden;
-  background: var(--color-deck-bg);
-  color: var(--color-deck-fg);
+  background: var(--deck-bg);
+  color: var(--deck-fg);
 }
 /* @deck-base:end */
 ```
 
-**Rebranding** works by overriding the deck tokens or the frame rules
-directly; this file loads after the deck config tokens, so it wins:
-
-```css
-:root {
-  --color-deck-bg: #0a0a0a;
-  --color-deck-fg: #f5f5f5;
-  --color-deck-accent: #ff5c00;
-}
-
-.eyebrow { font-family: var(--font-mono); letter-spacing: 0.35em; }
-```
+Change those variables directly. Fonts are loaded by CSS too (the
+starter file starts with a Google Fonts `@import`); swap the import, use
+system stacks, or add your own `@font-face`. The engine's Tailwind classes
+(`bg-deck-bg`, `font-display`, …) are only aliases for these deck-owned
+variables — they contain no palette or font values of their own.
 
 Every deck has this file. Older decks get the `@deck-base` block
 prepended once when opened, and the runtime accepts any top-level

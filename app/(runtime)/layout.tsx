@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
 
-import { allFontVariableClasses } from "@/lib/fonts";
-
 import "./runtime.css";
 
 /**
  * Root layout for the deck runtime — intentionally ISOLATED from the
- * app's chrome: no `globals.css`, no shadcn tokens, no AppShell. The frame
- * supplies its own complete Tailwind (via the browser build), deck tokens,
- * and root CSS (`runtime.css`), so deck CSS and app CSS can never overlap.
- *
- * Fonts are the only shared asset: the 14 registry families are applied
- * as variables here so `font-display`/`body`/`mono` resolve inside decks.
+ * app's chrome: no `globals.css`, no shadcn tokens, no AppShell, no app
+ * fonts, no theme presets. The deck supplies its own CSS, including its
+ * frame, palette, and typography.
  */
 
 export const metadata: Metadata = {
@@ -24,7 +19,7 @@ export default function RuntimeLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={allFontVariableClasses}>
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

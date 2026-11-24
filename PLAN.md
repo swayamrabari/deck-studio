@@ -39,7 +39,7 @@ local setup. The engine built in Phases 0–2 becomes the platform's core.
 | Editor | **CodeMirror 6**, custom-themed to the studio system (consistency-first); workspace chrome from shadcn (Tabs, Tree); Monaco as a later option |
 | UI kit | **shadcn/ui** (Base UI primitives, `nova` style, neutral base) |
 | Chrome mode | **Always dark studio**, monochrome |
-| Fonts | 14-family registry (sans/display/serif/mono), config-driven slots, **case-insensitive names** |
+| Fonts | App chrome uses a 14-family registry; **decks own their typography in `deck/styles.css`** (Google Fonts `@import`, `@font-face`, or system stacks) |
 | Reveal steps | v1 core — `<Appear>` fragments, step-aware navigation |
 | Extras roadmap | Charts, Mermaid, KaTeX, media embeds |
 | Export | **None.** Presenter only |
@@ -74,16 +74,14 @@ Two principles, enforced by architecture:
 
 **Font system**
 
-- `lib/fonts.ts` — the registry (14 families, all next/font, self-hosted;
-  browsers only download applied families): **Geist, Inter, Manrope,
-  DM Sans, Space Grotesk, Sora, Source Serif 4, Lora, Playfair Display,
-  Fraunces, JetBrains Mono, Fira Code, IBM Plex Mono, Geist Mono**.
-  Any Google font or local file = one registry entry. Names resolve
-  case-insensitively ("sora", "Sora", "SORA", "fira-code").
-- `deck.config.ts → fonts: { display, body, mono }` picks registry keys;
-  the root layout maps semantic vars (`--deck-font-*`) onto them.
-- Slides use only semantic utilities: `font-display`, `font-body`,
-  `font-mono`. Swapping a deck's entire type system = one config line.
+- `lib/fonts.ts` — the app's chrome font registry (14 families, all
+  next/font, self-hosted; browsers only download applied families).
+- Decks do **not** read this registry. A deck's typography lives in its
+  own `deck/styles.css`, where it can load any font via `@import` /
+  `@font-face` or use system stacks.
+- Slides use semantic utilities: `font-display`, `font-body`, `font-mono`.
+  Inside the runtime they are aliases for the deck's own
+  `--deck-font-*` CSS variables.
 
 **Consistency enforcement:** the `/style` specimen page renders every
 token, every primitive, and all 8 font specimens — the checkable source of
@@ -543,12 +541,9 @@ folder operations.
 
 **Config & media — what exists (post-Phase 9)**
 
-- `deck.config.ts` drives the runtime: aspect (16:9/4:3 canvas), theme
-  palette (midnight/paper), semantic font slots (8-family registry), and
-  `slideNumbers` passed to `layout.tsx`. The Tailwind browser build's
-  intermediate `--font-*` vars are overridden on the frame root so
-  per-deck font swaps actually reach the utility classes (bug found and
-  fixed live)
+- `deck.config.ts` holds behavior only: aspect (16:9/4:3 canvas),
+  `defaultTransition`, and `slideNumbers` passed to `layout.tsx`. **No
+  theme, palette, or fonts** — those live in `deck/styles.css`
 - Media pipeline: `deck_media` table (BLOB, 8 MB cap, image mimes),
   `GET/POST /api/decks/[id]/media` (list/upload), `GET/DELETE
   /api/decks/[id]/media/[name]` (serve/remove); workspace tree shows a
@@ -557,25 +552,25 @@ folder operations.
   runtime's `deck:load` message
 - Starter template's layout reads its footer title from
   `deck.config.ts`
-- Registry grew to **14 families** with **case-insensitive** name
-  resolution; `deck/styles.css` is guaranteed per deck (seeded or
-  backfilled) and `:root` overrides there rebrand the deck's colors
-  (fonts stay config-driven); the workspace `+` menu is wider
+- `deck/styles.css` is guaranteed per deck (seeded or backfilled) and is
+  the only source of palette and typography: direct `--deck-*` variables,
+  font `@import`/stacks, and the editable `@deck-base` frame block. The
+  workspace `+` menu is wider
 - **Full CSS isolation**: route-group root layouts split the app
   (`(app)` with globals) from the runtime (`(runtime)`, no app CSS). The
-  frame compiles its own Tailwind via the browser build with the deck
-  palette in `@theme`; verified the frame has none of the app's tokens
-  (`--background` absent) while app pages keep them, and deck brand
-  overrides still win inside the frame
+  frame compiles its own Tailwind via the browser build and a static
+  `@theme` bridge that only maps `deck-*` utility names to the deck's own
+  `--deck-*` variables; verified the frame has none of the app's tokens
+  (`--background` absent) while app pages keep them
 - **Deck owns its CSS**: the iframe body, `.deck-frame`,
-  `.deck-canvas`, and `.deck-canvas-stage` rules live as active, editable
-  CSS at the top of `deck/styles.css` (marked `@deck-base`). The platform
-  contributes **no** visual defaults and no canvas stylesheet; older
-  decks get the same block prepended once when opened. `runtime.css` now
-  only styles the fallback shell and runtime error overlay. Verified: the
-  frame's only stylesheet is the deck file plus font assets, the stage
-  computes from the deck's own rule, and there are no app tokens or
-  module styles in the document
+  `.deck-canvas`, `.deck-canvas-stage`, palette variables, and font
+  stacks live as active, editable CSS at the top of `deck/styles.css`
+  (marked `@deck-base`). The platform contributes **no** visual defaults,
+  no config theme, no fonts, and no canvas stylesheet; older decks are
+  upgraded to the standalone base when opened. `runtime.css` now only
+  styles the fallback shell and runtime error overlay. Verified: editing
+  the deck file changes the frame body/stage exactly, the frame has no
+  app tokens, and there is no platform canvas stylesheet
 - Formatting: Prettier standalone loaded lazily in the workspace —
   **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
   format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors

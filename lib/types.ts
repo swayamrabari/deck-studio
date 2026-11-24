@@ -1,5 +1,4 @@
 import type { ComponentType, ReactNode } from "react";
-import type { DeckFonts } from "./fonts";
 
 /** Transitions supported between slides by the presenter. */
 export type SlideTransition = "fade" | "slide" | "zoom";
@@ -45,12 +44,8 @@ export interface DeckConfig {
   title: string;
   /** Logical canvas size; slides are authored at these dimensions. */
   aspect: SlideAspect;
-  /** Theme preset name — drives the deck color/font tokens. */
-  theme: "midnight" | "paper";
   /** Default transition used between slides (per-slide `meta` wins). */
   defaultTransition: SlideTransition;
   /** Show slide numbers on the slide chrome. */
   slideNumbers: boolean;
-  /** Deck typography — semantic slots filled from the font registry. */
-  fonts: DeckFonts;
 }

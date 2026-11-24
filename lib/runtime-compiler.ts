@@ -39,34 +39,24 @@ export interface CompiledDeck {
 const DEFAULT_CONFIG: DeckConfig = {
   title: "",
   aspect: "16:9",
-  theme: "midnight",
   defaultTransition: "fade",
   slideNumbers: true,
-  fonts: { display: "Geist", body: "Geist", mono: "Geist Mono" },
 };
 
 function normalizeConfig(raw: unknown): DeckConfig {
   const source = (raw ?? {}) as Partial<DeckConfig>;
   const aspect = source.aspect === "4:3" ? "4:3" : "16:9";
-  const theme = source.theme === "paper" ? "paper" : "midnight";
   const transition = ["fade", "slide", "zoom"].includes(
     source.defaultTransition ?? ""
   )
     ? (source.defaultTransition as DeckConfig["defaultTransition"])
     : "fade";
-  const fonts = source.fonts ?? DEFAULT_CONFIG.fonts;
   return {
     title: typeof source.title === "string" ? source.title : "",
     aspect,
-    theme,
     defaultTransition: transition,
     slideNumbers:
       typeof source.slideNumbers === "boolean" ? source.slideNumbers : true,
-    fonts: {
-      display: typeof fonts.display === "string" ? fonts.display : "Geist",
-      body: typeof fonts.body === "string" ? fonts.body : "Geist",
-      mono: typeof fonts.mono === "string" ? fonts.mono : "Geist Mono",
-    },
   };
 }
 

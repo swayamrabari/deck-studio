@@ -3,7 +3,6 @@
 import {
   Component,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -12,8 +11,6 @@ import {
 import { SlideCanvas } from "@/components/deck/slide-canvas";
 import { SlideStepProvider } from "@/components/slides";
 import { setMediaBase } from "@/components/slides/media";
-import { DECK_THEMES } from "@/lib/deck-themes";
-import { fontVar } from "@/lib/fonts";
 import { compileDeck, type CompiledDeck } from "@/lib/runtime-compiler";
 import type {
   RuntimeInMessage,
@@ -45,6 +42,24 @@ function deckUsesLucide(files: Record<string, string>): boolean {
       source.includes('"lucide-react"') || source.includes("'lucide-react'")
   );
 }
+
+/**
+ * Static bridge from the deck's own CSS variables to Tailwind utility
+ * names. This is plumbing only — it defines no palette and no fonts.
+ * `deck/styles.css` owns the values (`--deck-bg`, `--deck-font-mono`, …);
+ * this block simply lets engine classes like `bg-deck-bg` and
+ * `font-display` resolve to them.
+ */
+const TAILWIND_BRIDGE = `@theme {
+  --color-deck-bg: var(--deck-bg);
+  --color-deck-surface: var(--deck-surface);
+  --color-deck-fg: var(--deck-fg);
+  --color-deck-muted: var(--deck-muted);
+  --color-deck-accent: var(--deck-accent);
+  --font-display: var(--deck-font-display);
+  --font-body: var(--deck-font-body);
+  --font-mono: var(--deck-font-mono);
+}`;
 
 class SlideErrorBoundary extends Component<
   { children: ReactNode; onError: (message: string) => void },
@@ -179,42 +194,11 @@ export default function RuntimeFramePage() {
   const canvasWidth = config?.aspect === "4:3" ? 960 : 1280;
   const canvasHeight = 720;
 
-  const frameCss = useMemo(() => {
-    const theme = DECK_THEMES[config?.theme ?? "midnight"] ?? DECK_THEMES.midnight;
-    // The frame is CSS-independent from the app: Tailwind's browser build
-    // generates utilities from the deck's DOM, and the deck palette is
-    // registered here so `bg-deck-bg` etc. only exist for deck content.
-    return `@theme {
-  --color-deck-bg: ${theme.bg};
-  --color-deck-surface: ${theme.surface};
-  --color-deck-fg: ${theme.fg};
-  --color-deck-muted: ${theme.muted};
-  --color-deck-accent: ${theme.accent};
-  --font-display: var(--deck-font-display);
-  --font-body: var(--deck-font-body);
-  --font-mono: var(--deck-font-mono);
-}`;
-  }, [config]);
-
-  // Font slots live at :root in their own stylesheet; `deck/styles.css`
-  // loads after both, so brand overrides still win.
-  const fontCss = useMemo(() => {
-    const display = fontVar(config?.fonts.display, "--font-geist-sans");
-    const body = fontVar(config?.fonts.body, "--font-geist-sans");
-    const mono = fontVar(config?.fonts.mono, "--font-geist-mono");
-    return `:root {
-  --deck-font-display: ${display};
-  --deck-font-body: ${body};
-  --deck-font-mono: ${mono};
-}`;
-  }, [config]);
-
   return (
     <div className="deck-frame">
-      <style type="text/tailwindcss" data-deck-theme>
-        {frameCss}
+      <style type="text/tailwindcss" data-deck-tailwind>
+        {TAILWIND_BRIDGE}
       </style>
-      <style data-deck-fonts>{fontCss}</style>
       {deck?.styles ? (
         <style data-deck-styles>{deck.styles}</style>
       ) : null}

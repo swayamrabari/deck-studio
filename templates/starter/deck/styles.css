@@ -1,9 +1,23 @@
-/* @deck-base:start — this is the deck's frame. Edit it freely. */
+/* @deck-base:start v2 — this is the deck's frame and theme. Edit it freely. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap");
+
 /*
- * The platform supplies no visual styles to this document. Everything
- * below is ordinary CSS owned by the deck: the iframe body, the canvas
- * box, and the scaled stage. Delete or replace any of it.
+ * The platform supplies no palette, typography, or visual styles to this
+ * document. Everything below is ordinary CSS owned by the deck. Change
+ * the values or replace the rules.
  */
+:root {
+  --deck-bg: #0b0e14;
+  --deck-surface: #131826;
+  --deck-fg: #e8ecf3;
+  --deck-muted: #9aa4b8;
+  --deck-accent: #7aa2f7;
+
+  --deck-font-display: "Space Grotesk", system-ui, sans-serif;
+  --deck-font-body: "Inter", system-ui, sans-serif;
+  --deck-font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
 html,
 body {
   height: 100%;
@@ -30,23 +44,23 @@ body {
 
 .deck-canvas-stage {
   overflow: hidden;
-  background: var(--color-deck-bg);
-  color: var(--color-deck-fg);
+  background: var(--deck-bg);
+  color: var(--deck-fg);
 }
 /* @deck-base:end */
 
 /* ── Deck classes ─────────────────────────────────────────────────── */
 
 .eyebrow {
-  font-family: var(--font-mono);
+  font-family: var(--deck-font-mono);
   font-size: 0.875rem;
   line-height: 1.4;
   letter-spacing: 0.35em;
   text-transform: uppercase;
-  color: var(--color-deck-muted);
+  color: var(--deck-muted);
 }
 
 .hairline-rule {
   border: 0;
-  border-top: 1px solid var(--color-deck-surface);
+  border-top: 1px solid var(--deck-surface);
 }

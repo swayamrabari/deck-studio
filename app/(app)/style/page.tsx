@@ -31,7 +31,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { deck } from "@/lib/deck.config";
 import { fontRegistry } from "@/lib/fonts";
 
 export const metadata: Metadata = {
@@ -217,21 +216,21 @@ export default function StylePage() {
         </div>
       </section>
 
-      {/* 05 — Deck semantic slots */}
+      {/* 05 — Type slots */}
       <section className="space-y-4">
-        <SectionHeading index="05" title="Deck type · config-driven slots" />
+        <SectionHeading index="05" title="Type slots · app defaults" />
         <div className="rounded-lg border border-border bg-card p-5">
           <div className="space-y-3">
             <p className="text-3xl font-display tracking-tight">
-              Display · {deck.fonts.display}
+              Display · Space Grotesk
             </p>
             <p className="text-base font-body text-muted-foreground">
-              Body · {deck.fonts.body} — swap any slot in
-              <span className="font-ui-mono text-sm"> lib/deck.config.ts </span>
-              and every slide follows.
+              Body · Inter — these are the app&apos;s font slots. Hosted decks
+              define their own typography in{" "}
+              <span className="font-ui-mono text-sm">deck/styles.css</span>.
             </p>
             <p className="font-mono text-sm text-muted-foreground">
-              mono · {deck.fonts.mono} — export const answer = 42;
+              mono · JetBrains Mono — export const answer = 42;
             </p>
           </div>
         </div>

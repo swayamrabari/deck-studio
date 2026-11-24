@@ -26,8 +26,9 @@ const STYLES_TEMPLATE_PATH = path.join(
   STYLES_PATH
 );
 
-const BASE_START = "/* @deck-base:start";
+const BASE_START = "/* @deck-base:start v2";
 const BASE_END = "/* @deck-base:end */";
+const LEGACY_BASE_START = "/* @deck-base:start";
 
 export type StarterFiles = Record<string, string>;
 
@@ -130,10 +131,10 @@ export async function ensureDeckStylesFile(
 }
 
 /**
- * Prepends the deck-frame block to a stylesheet that predates it. The
- * base is written into the deck file itself (not injected by the
- * platform), so every rule is editable. Returns the new content when it
- * changed, or null when the base is already present.
+ * Prepends (or upgrades) the editable deck-frame block. The base is
+ * written into the deck file itself (not injected by the platform), so
+ * every rule is editable. Returns the new content when it changed, or
+ * null when the current base is already present.
  */
 export async function ensureDeckBaseCss(
   deckId: string,
@@ -144,7 +145,22 @@ export async function ensureDeckBaseCss(
   const base = await readDeckBaseCss();
   if (!base) return null;
 
-  const next = `${base}\n\n${content.trimStart()}`;
+  const legacyStart = content.indexOf(LEGACY_BASE_START);
+  const legacyEnd = content.indexOf(BASE_END);
+
+  let next: string;
+  if (legacyStart !== -1 && legacyEnd !== -1) {
+    // Replace the old commented/theme-token base with the standalone one.
+    next =
+      content.slice(0, legacyStart) +
+      base +
+      content.slice(legacyEnd + BASE_END.length);
+  } else {
+    next = `${base}\n\n${content.trimStart()}`;
+  }
+
+  if (next === content) return null;
+
   await db
     .update(deckFiles)
     .set({ content: next, updatedAt: new Date() })

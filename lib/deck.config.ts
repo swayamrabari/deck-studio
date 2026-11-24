@@ -1,18 +1,13 @@
 import type { DeckConfig } from "./types";
 
 /**
- * Deck-wide settings — configures the whole presentation.
- * The slides themselves live in `slides/`.
+ * App-side deck settings for the legacy local presenter/preview. Hosted
+ * decks read their own `deck/deck.config.ts`; styling never comes from
+ * this file.
  */
 export const deck: DeckConfig = {
   title: "Slides as code",
   aspect: "16:9",
-  theme: "midnight",
   defaultTransition: "fade",
   slideNumbers: true,
-  fonts: {
-    display: "Space Grotesk",
-    body: "Inter",
-    mono: "JetBrains Mono",
-  },
 };

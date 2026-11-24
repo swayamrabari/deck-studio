@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import {
   DM_Sans,
   Fira_Code,
@@ -25,7 +24,9 @@ import {
  * that are actually applied.
  *
  * Adding a font = one entry here (any next/font/google family, or
- * next/font/local for a bundled file). Then pick it in deck.config.
+ * next/font/local for a bundled file). Decks do not read this registry;
+ * a deck's typography lives in its own `deck/styles.css`, where it can
+ * use these families or load any other font in CSS.
  *
  * Font names are resolved case-insensitively: "space grotesk",
  * "SpaceGrotesk" and "SPACE_GROTESK" all find "Space Grotesk".
@@ -78,48 +79,7 @@ export const fontRegistry = {
 
 export type FontKey = keyof typeof fontRegistry;
 
-function normalizeFontName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
-
-const FONT_LOOKUP = new Map(
-  Object.keys(fontRegistry).map((key) => [normalizeFontName(key), key as FontKey])
-);
-
-/** Finds a registry key from any capitalization/spacing ("dm sans" → "DM Sans"). */
-export function resolveFontKey(name: string | null | undefined): FontKey | null {
-  if (!name) return null;
-  return FONT_LOOKUP.get(normalizeFontName(name)) ?? null;
-}
-
-/** CSS `var(...)` reference for a font name (case-insensitive), or a fallback. */
-export function fontVar(name: string | undefined, fallbackVar: string): string {
-  const key = resolveFontKey(name);
-  return `var(${key ? fontRegistry[key].varName : fallbackVar})`;
-}
-
-/** Semantic slots filled by deck.config — the deck's entire type system. */
-export interface DeckFonts {
-  display: FontKey;
-  body: FontKey;
-  mono: FontKey;
-}
-
-/** All `.variable` classes, applied to <html> once by the root layout. */
+/** All `.variable` classes, applied to <html> once by the app layout. */
 export const allFontVariableClasses: string = Object.values(fontRegistry)
   .map((entry) => entry.variableClass)
   .join(" ");
-
-/**
- * Inline style for <html>: maps the semantic deck font slots onto the
- * families chosen in deck.config. The `--deck-font-*` variables are
- * consumed by the `font-display` / `font-body` / `font-mono` utilities
- * (see app/globals.css), so a font swap is a config-only change.
- */
-export function deckFontVars(fonts: DeckFonts): CSSProperties {
-  return {
-    "--deck-font-display": fontVar(fonts.display, "--font-geist-sans"),
-    "--deck-font-body": fontVar(fonts.body, "--font-geist-sans"),
-    "--deck-font-mono": fontVar(fonts.mono, "--font-geist-mono"),
-  } as CSSProperties;
-}

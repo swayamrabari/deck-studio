@@ -14,7 +14,7 @@
   --font-heading: var(--font-geist-sans); /* chrome headings */
   --font-ui-mono: var(--font-geist-mono); /* chrome code (paths, counters) */
 
-  /* ── Deck type — semantic slots, filled from deck.config fonts ───── */
+  /* ── Deck type — app-side defaults for previews and the studio ───── */
   --font-display: var(--deck-font-display);
   --font-body: var(--deck-font-body);
   --font-mono: var(--deck-font-mono);
@@ -126,8 +126,8 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 
-  /* Deck font slots — the root layout sets these from deck.config;
-     these defaults keep the utilities valid if a slot is ever unset. */
+  /* Deck font slots — app-side defaults for previews. Hosted decks own
+     their own typography in `deck/styles.css`. */
   --deck-font-display: var(--font-space-grotesk);
   --deck-font-body: var(--font-inter);
   --deck-font-mono: var(--font-jetbrains-mono);

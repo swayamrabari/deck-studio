@@ -3,8 +3,7 @@ import "./globals.css";
 
 import { AppShell } from "@/components/app-shell";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { deck } from "@/lib/deck.config";
-import { allFontVariableClasses, deckFontVars } from "@/lib/fonts";
+import { allFontVariableClasses } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "pptxgen — code-first deck",
@@ -17,7 +16,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${allFontVariableClasses} h-full antialiased`}
-      style={deckFontVars(deck.fonts)}
     >
       <body className="min-h-full">
         <TooltipProvider>
