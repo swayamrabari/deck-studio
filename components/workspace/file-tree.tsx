@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import {
   ChevronRightIcon,
   FileCodeIcon,
+  FilePlusIcon,
   FileTextIcon,
   FolderIcon,
   FolderOpenIcon,
@@ -29,8 +30,16 @@ export interface FolderNode {
 
 export type TreeNode = FileNode | FolderNode;
 
-/** Builds the visible tree from flat deck paths (`deck/01-title/page.tsx`). */
-export function buildTree(paths: string[]): TreeNode[] {
+/**
+ * Builds the visible tree from flat deck paths (`deck/01-title/page.tsx`),
+ * plus explicit `emptyFolders` — folders created in the UI that own no
+ * files yet (they materialize in storage when the first file lands in
+ * them and are dropped from the list at that point).
+ */
+export function buildTree(
+  paths: string[],
+  emptyFolders: string[] = []
+): TreeNode[] {
   const root: TreeNode[] = [];
 
   for (const fullPath of [...paths].sort()) {
@@ -62,6 +71,27 @@ export function buildTree(paths: string[]): TreeNode[] {
     }
   }
 
+  for (const folderPath of emptyFolders) {
+    const segments = folderPath.split("/");
+    if (segments[0] !== "deck") continue;
+
+    let level = root;
+    let prefix = "deck";
+
+    for (let i = 1; i < segments.length; i++) {
+      const segment = segments[i];
+      prefix = `${prefix}/${segment}`;
+      let folder = level.find(
+        (node): node is FolderNode => node.kind === "folder" && node.name === segment
+      );
+      if (!folder) {
+        folder = { kind: "folder", name: segment, path: prefix, children: [] };
+        level.push(folder);
+      }
+      level = folder.children;
+    }
+  }
+
   const sortLevel = (nodes: TreeNode[]) => {
     nodes.sort((a, b) =>
       a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "folder" ? -1 : 1
@@ -81,19 +111,25 @@ function fileIcon(name: string) {
 
 export function FileTree({
   paths,
+  emptyFolders = [],
   activePath,
   onOpen,
   onRename,
   onDelete,
+  onAddFile,
   media = [],
   onOpenMedia,
   onDeleteMedia,
 }: {
   paths: string[];
+  /** Folders created in the UI that own no files yet. */
+  emptyFolders?: string[];
   activePath: string | null;
   onOpen: (path: string) => void;
   onRename: (path: string, folder: boolean) => void;
   onDelete: (path: string, recursive: boolean) => void;
+  /** Opens the new-file dialog pre-filled for inside `folderPath`. */
+  onAddFile?: (folderPath: string) => void;
   media?: Array<{ name: string }>;
   onOpenMedia?: (name: string) => void;
   onDeleteMedia?: (name: string) => void;
@@ -121,7 +157,7 @@ export function FileTree({
             <div
               role="button"
               tabIndex={0}
-              className="group/row flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              className="group/row flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[13px] text-muted-foreground transition-colors outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:ring-inset"
               style={{ paddingLeft: indent }}
               onClick={() => toggle(node.path)}
               onKeyDown={(event) => {
@@ -144,6 +180,17 @@ export function FileTree({
               )}
               <span className="truncate">{node.name}</span>
               <span className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
+                <button
+                  type="button"
+                  aria-label={`Add file to ${node.path}`}
+                  className="cursor-pointer rounded-sm p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAddFile?.(node.path);
+                  }}
+                >
+                  <FilePlusIcon className="size-3" />
+                </button>
                 {isSlideFolder ? (
                   <button
                     type="button"
@@ -183,7 +230,7 @@ export function FileTree({
           role="button"
           tabIndex={0}
           className={cn(
-            "group/row flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[13px] transition-colors",
+            "group/row flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[13px] transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:ring-inset",
             isActive
               ? "bg-card text-foreground"
               : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
@@ -232,7 +279,7 @@ export function FileTree({
 
   return (
     <div>
-      {renderNodes(buildTree(paths), 0)}
+      {renderNodes(buildTree(paths, emptyFolders), 0)}
       {media.length > 0 ? (
         <div>
           <div
@@ -251,7 +298,7 @@ export function FileTree({
               key={item.name}
               role="button"
               tabIndex={0}
-              className="group/row flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              className="group/row flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[13px] text-muted-foreground transition-colors outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:ring-inset"
               style={{ paddingLeft: 20 }}
               onClick={() => onOpenMedia?.(item.name)}
               onKeyDown={(event) => {

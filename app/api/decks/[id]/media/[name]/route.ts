@@ -1,27 +1,21 @@
+import { createHash } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { deckMedia } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
-import { getOwnedDeck } from "@/lib/decks";
+import { deckMedia, decks } from "@/db/schema";
+import { authorizeDeck } from "@/lib/decks";
 import { sanitizeMediaName } from "@/lib/media";
 
 /** Serves one media file of a deck. */
 export async function GET(
-  _request: Request,
+  request: Request,
   ctx: RouteContext<"/api/decks/[id]/media/[name]">
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { id, name } = await ctx.params;
-  const deck = await getOwnedDeck(id, user.id);
-  if (!deck) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
+  const deck = auth.deck;
 
   const safeName = sanitizeMediaName(name);
   if (!safeName) {
@@ -40,10 +34,20 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  // Media is auth-gated and private: `private` keeps intermediaries out,
+  // `no-cache` + ETag lets the browser revalidate instead of re-downloading
+  // the full body on every slide render and presentation view.
+  const etag = createHash("sha256").update(row.bytes).digest("hex");
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, { status: 304, headers: { ETag: etag } });
+  }
+
   return new Response(new Uint8Array(row.bytes), {
     headers: {
       "Content-Type": row.mime,
-      "Cache-Control": "no-store",
+      "Cache-Control": "private, no-cache",
+      ETag: etag,
+      "X-Content-Type-Options": "nosniff",
       "Content-Length": String(row.bytes.byteLength),
     },
   });
@@ -54,16 +58,10 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<"/api/decks/[id]/media/[name]">
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { id, name } = await ctx.params;
-  const deck = await getOwnedDeck(id, user.id);
-  if (!deck) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
+  const deck = auth.deck;
 
   const safeName = sanitizeMediaName(name);
   if (!safeName) {
@@ -75,6 +73,11 @@ export async function DELETE(
     .where(
       and(eq(deckMedia.deckId, deck.id), eq(deckMedia.name, safeName))
     );
+  // Keep dashboard ordering consistent with uploads.
+  await db
+    .update(decks)
+    .set({ updatedAt: new Date() })
+    .where(eq(decks.id, deck.id));
 
   return NextResponse.json({ ok: true });
 }

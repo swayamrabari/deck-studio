@@ -34,7 +34,7 @@ local setup. The engine built in Phases 0–2 becomes the platform's core.
 | Product model | **Hosted multi-user platform** — login, deck dashboard, browser authoring (pivoted from the single-deck local tool) |
 | Decks | Many per user; a deck = a file tree in the database, App Router-shaped |
 | Auth (v1) | **Custom token-based, minimal** — email + password (hashed), opaque session tokens in httpOnly cookies. Upgrade path: Better Auth / OAuth |
-| Database (v1) | **SQLite via Node's built-in `node:sqlite` + Drizzle (sqlite-proxy adapter)** — zero native dependencies; schema portable to Postgres later |
+| Database (v1) | ~~SQLite via `node:sqlite`~~ → **migrated to Postgres (Supabase)** + Drizzle (`postgres-js`, transaction pooler, `prepare: false`) — the portable schema carried over 1:1; see README → Deploy |
 | Deck runtime | **Custom in-browser runtime** — transpile → virtual modules → sandboxed iframe; Tailwind v4 browser build |
 | Editor | **CodeMirror 6**, custom-themed to the studio system (consistency-first); workspace chrome from shadcn (Tabs, Tree); Monaco as a later option |
 | UI kit | **shadcn/ui** (Base UI primitives, `nova` style, neutral base) |
@@ -220,8 +220,8 @@ export default function MetricsSlide() {
 `deck/deck.config.ts` drives rendering: `aspect` sets the canvas
 (`16:9` → 1280×720, `4:3` → 960×720), `theme` picks the palette
 (`midnight` | `paper`), `fonts` map the semantic slots onto the 8-family
-registry, and `slideNumbers` is passed to `layout.tsx`.
-`defaultTransition` is reserved for the presenter's cross-frame fade.
+registry, and `slideNumbers` is passed to `layout.tsx`. Slide changes
+are instant cuts — transitions were removed from the product.
 
 ### Media
 
@@ -542,12 +542,12 @@ folder operations.
 
 **Config & media — what exists (post-Phase 9)**
 
-- `deck.config.ts` holds behavior: aspect (16:9/4:3 canvas), 
-  `defaultTransition`, `slideNumbers` passed to `layout.tsx`, and optional
+- `deck.config.ts` holds behavior: aspect (16:9/4:3 canvas),
+  `slideNumbers` passed to `layout.tsx`, and optional
   `progress` (show, top/bottom, height, fill, track). **No theme, palette,
   or fonts** - those live in `deck/styles.css`. The workspace preview box
   follows the configured aspect; the presenter renders the progress bar
-  from the deck config
+  from the deck config; slide changes are instant cuts (no transitions)
 - Media pipeline: `deck_media` table (BLOB, 8 MB cap, image mimes),
   `GET/POST /api/decks/[id]/media` (list/upload), `GET/DELETE
   /api/decks/[id]/media/[name]` (serve/remove); workspace tree shows a

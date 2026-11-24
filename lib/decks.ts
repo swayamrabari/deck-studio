@@ -1,9 +1,11 @@
 import "server-only";
 
 import { and, eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
 
+import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/db";
-import { decks } from "@/db/schema";
+import { decks, type Deck } from "@/db/schema";
 
 /**
  * Deck contract helpers shared by the workspace API.
@@ -30,6 +32,27 @@ export async function getOwnedDeck(deckId: string, userId: string) {
     .where(and(eq(decks.id, deckId), eq(decks.ownerId, userId)))
     .limit(1);
   return deck ?? null;
+}
+
+/**
+ * Auth + ownership in one step — the guard every deck-scoped API handler
+ * runs before touching rows. Returns the deck, or a ready-to-return error
+ * response (401 for anonymous requests, 404 for anyone else's deck).
+ */
+export async function authorizeDeck(
+  deckId: string
+): Promise<{ deck: Deck } | { error: NextResponse }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return {
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+  const deck = await getOwnedDeck(deckId, user.id);
+  if (!deck) {
+    return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
+  }
+  return { deck };
 }
 
 /** Paths that are the path itself or anywhere inside it (folder subtree). */

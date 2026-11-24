@@ -19,9 +19,14 @@ function ScrollArea({
       className={cn("relative", className)}
       {...props}
     >
+      {/* No focus ring on the viewport: Chromium moves focus to focusable
+          scroll regions on wheel scrolling (shift+scroll included), and a
+          ring there reads as a glitchy white border. tabIndex stays (the
+          primitive sets it) so keyboard scrolling still works; interactive
+          children carry their own visible focus styles. */}
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        className="size-full rounded-[inherit] outline-none"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
@@ -52,7 +57,7 @@ function ScrollBar({
     >
       <ScrollAreaPrimitive.Thumb
         data-slot="scroll-area-thumb"
-        className="relative flex-1 rounded-full bg-border"
+        className="relative flex-1 rounded-full"
       />
     </ScrollAreaPrimitive.Scrollbar>
   )

@@ -11,6 +11,8 @@ import "./runtime.css";
 
 export const metadata: Metadata = {
   title: "Deck runtime",
+  // Host-only frame URL: never show up in search results.
+  robots: { index: false, follow: false },
 };
 
 export default function RuntimeLayout({

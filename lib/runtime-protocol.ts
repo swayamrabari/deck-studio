@@ -26,9 +26,23 @@ export type RuntimeOutMessage =
       progress: DeckProgressConfig;
     }
   | { type: "deck:steps"; index: number; totalSteps: number }
-  | { type: "deck:error"; message: string };
+  | { type: "deck:error"; message: string }
+  | {
+      /**
+       * Presenter navigation key pressed inside the frame. The frame is a
+       * separate document — once it holds focus, the host window never sees
+       * keydown events — so the frame forwards the keys it recognizes.
+       */
+      type: "deck:keydown";
+      key: string;
+    };
 
 const SLIDE_RE = /^deck\/(\d+)-[^/]+\/page\.tsx$/;
+
+/** True for slide files (`deck/NN-name/page.tsx`) — the one shared rule. */
+export function isSlideFilePath(path: string): boolean {
+  return SLIDE_RE.test(path);
+}
 
 /** Slide file paths in presentation order (numeric folder prefixes). */
 export function slideFilePaths(
@@ -36,7 +50,7 @@ export function slideFilePaths(
 ): string[] {
   const list = Array.isArray(paths) ? paths : Object.keys(paths);
   return list
-    .filter((path) => SLIDE_RE.test(path))
+    .filter((path) => isSlideFilePath(path))
     .sort((a, b) => {
       const na = Number(/^deck\/(\d+)-/.exec(a)?.[1] ?? 0);
       const nb = Number(/^deck\/(\d+)-/.exec(b)?.[1] ?? 0);

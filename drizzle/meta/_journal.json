@@ -1,19 +1,12 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1795431544380,
-      "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1795438516222,
-      "tag": "0001_media",
+      "version": "7",
+      "when": 1795520475043,
+      "tag": "0000_dashing_korvac",
       "breakpoints": true
     }
   ]

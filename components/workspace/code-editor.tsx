@@ -76,61 +76,68 @@ export function CodeEditor({
   ref?: Ref<CodeEditorHandle>;
 }) {
   const codeMirrorRef = useRef<ReactCodeMirrorRef>(null);
-  const formatRef = useRef<() => void>(() => {});
 
-  const format = useCallback(async () => {
-    const view = codeMirrorRef.current?.view;
-    if (!view) return;
+  // Formatting works on the view it is given — CodeMirror passes the view
+  // into its own event handlers, and the imperative handle bridges the
+  // ref — so no handler reads refs during render.
+  const formatWith = useCallback(
+    async (view: EditorView) => {
+      const current = view.state.doc.toString();
+      const formatted = await formatCode(current, path);
+      if (formatted === null || formatted === current) return;
 
-    const current = view.state.doc.toString();
-    const formatted = await formatCode(current, path);
-    if (formatted === null || formatted === current) return;
+      // Preserve the cursor's line/column across the full-document replace.
+      const head = view.state.selection.main.head;
+      const line = view.state.doc.lineAt(head);
+      const column = head - line.from;
 
-    // Preserve the cursor's line/column across the full-document replace.
-    const head = view.state.selection.main.head;
-    const line = view.state.doc.lineAt(head);
-    const column = head - line.from;
+      view.dispatch({
+        changes: { from: 0, to: current.length, insert: formatted },
+      });
+      const targetLine = view.state.doc.line(
+        Math.min(line.number, view.state.doc.lines)
+      );
+      view.dispatch({
+        selection: {
+          anchor: Math.min(targetLine.from + column, targetLine.to),
+        },
+      });
+      view.focus();
+    },
+    [path]
+  );
 
-    view.dispatch({
-      changes: { from: 0, to: current.length, insert: formatted },
-    });
-    const targetLine = view.state.doc.line(
-      Math.min(line.number, view.state.doc.lines)
-    );
-    view.dispatch({
-      selection: {
-        anchor: Math.min(targetLine.from + column, targetLine.to),
+  useImperativeHandle(
+    ref,
+    () => ({
+      format: () => {
+        const view = codeMirrorRef.current?.view;
+        if (view) void formatWith(view);
       },
-    });
-    view.focus();
-  }, [path]);
-
-  formatRef.current = () => {
-    void format();
-  };
-
-  useImperativeHandle(ref, () => ({ format: () => formatRef.current() }), []);
+    }),
+    [formatWith]
+  );
 
   const formattingExtensions = useMemo(
     () => [
       // Format automatically after a paste lands in the document.
       EditorView.domEventHandlers({
-        paste: () => {
-          window.setTimeout(() => formatRef.current(), 0);
+        paste: (_event, view) => {
+          window.setTimeout(() => void formatWith(view), 0);
           return false;
         },
       }),
       keymap.of([
         {
           key: "Shift-Alt-f",
-          run: () => {
-            formatRef.current();
+          run: (view) => {
+            void formatWith(view);
             return true;
           },
         },
       ]),
     ],
-    []
+    [formatWith]
   );
 
   const extensions = useMemo(

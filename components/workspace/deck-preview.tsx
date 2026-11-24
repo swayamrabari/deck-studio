@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "cn";
 import {
@@ -36,13 +36,14 @@ export function DeckPreview({
   const [slideCount, setSlideCount] = useState<number | null>(null);
   const aspect = previewAspect(files);
 
-  const slideIndex = useMemo(() => {
-    const slides = slideFilePaths(files);
-    if (activePath && slides.includes(activePath)) {
-      return slides.indexOf(activePath);
-    }
-    return slideIndexForPath(files, activePath);
-  }, [files, activePath]);
+  // Slide order follows the numeric folder prefixes; the active file picks
+  // the previewed slide. (Left un-memoized on purpose — the React Compiler
+  // derives it more reliably than a manual useMemo here.)
+  const slides = slideFilePaths(files);
+  const slideIndex =
+    activePath && slides.includes(activePath)
+      ? slides.indexOf(activePath)
+      : slideIndexForPath(files, activePath);
 
   const send = useCallback((message: RuntimeInMessage) => {
     frameRef.current?.contentWindow?.postMessage(

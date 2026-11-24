@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AuthForm } from "@/components/auth/auth-form";
@@ -9,14 +10,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth";
+import { requireUser, signupsOpen } from "@/lib/auth";
 
 // Auth-aware: reads the session cookie, so the route blocks on the server.
 export const instant = false;
 
+export const metadata: Metadata = {
+  title: "Create account — pptxgen",
+};
+
 export default async function SignupPage() {
   const user = await requireUser();
   if (user) redirect("/decks");
+
+  // Registrations closed (single-user mode): login is the only way in.
+  if (!signupsOpen()) redirect("/login");
 
   return (
     <div className="flex min-h-dvh items-center justify-center px-6">

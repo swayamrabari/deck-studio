@@ -19,8 +19,9 @@ export function UserMenu({ email }: { email: string }) {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    // replace() renders the destination server-side, which sees the
+    // cleared cookie — no extra refresh needed.
     router.replace("/");
-    router.refresh();
   }
 
   return (
@@ -30,10 +31,13 @@ export function UserMenu({ email }: { email: string }) {
       >
         <UserIcon />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="font-ui-mono text-xs">
-            {email}
+          <DropdownMenuLabel
+            className="font-ui-mono text-xs"
+            title={email}
+          >
+            <span className="block max-w-full truncate">{email}</span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout}>

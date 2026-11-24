@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { buttonVariants } from "@/components/ui/button";
-import { requireUser } from "@/lib/auth";
+import { requireUser, signupsOpen } from "@/lib/auth";
 import { cn } from "cn";
 
 // Auth-aware: reads the session cookie, so the route blocks on the server
@@ -27,9 +27,11 @@ export default async function Home() {
         presenter. No exports, ever.
       </p>
       <div className="mt-10 flex items-center gap-3">
-        <Link href="/signup" className={cn(buttonVariants())}>
-          Create account
-        </Link>
+        {signupsOpen() ? (
+          <Link href="/signup" className={cn(buttonVariants())}>
+            Create account
+          </Link>
+        ) : null}
         <Link
           href="/login"
           className={cn(buttonVariants({ variant: "outline" }))}
@@ -38,7 +40,7 @@ export default async function Home() {
         </Link>
       </div>
       <p className="absolute bottom-8 font-ui-mono text-[10px] text-muted-foreground">
-        react · tailwind · token auth · sqlite · zero pptx
+        react · tailwind · token auth · postgres · zero pptx
       </p>
     </div>
   );

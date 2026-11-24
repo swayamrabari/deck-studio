@@ -1,0 +1,56 @@
+name: Supabase keep-alive
+
+# BACKUP keep-alive. The PRIMARY is Vercel Cron → /api/health (see
+# vercel.json), which needs no GitHub activity. This workflow exists for
+# manual runs and as a fallback — note GitHub auto-disables scheduled
+# workflows after ~60 days without repository commits.
+
+# Supabase's free tier pauses projects after ~7 days without database
+# activity. This job opens a real connection and runs a harmless query
+# once a day, which counts as activity — no writes, no schema pollution.
+
+on:
+  schedule:
+    # 03:00 UTC every day (= 08:30 IST / 22:00 PST). GitHub cron is UTC;
+    # adjust the five fields (minute hour day month weekday) to taste.
+    - cron: "0 3 * * *"
+  # Allows manual runs from the Actions tab — use this to test the setup.
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    container:
+      # Ships psql, so no install step is needed on the runner.
+      image: postgres:17-alpine
+    steps:
+      - name: Connect and query the database
+        env:
+          # Repo secret: the Supabase transaction-pooler connection
+          # string — the same value as Vercel's DATABASE_URL.
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -eu
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL secret is not set — add it under"
+            echo "Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          # Supabase enforces TLS; make sure the URL asks for it.
+          url="$SUPABASE_DB_URL"
+          case "$url" in
+            *sslmode=*) ;;
+            *\?*) url="$url&sslmode=require" ;;
+            *) url="$url?sslmode=require" ;;
+          esac
+
+          # Server-side now() is UTC — the Actions log doubles as a
+          # timestamped proof of the last keep-alive.
+          psql "$url" \
+            -v ON_ERROR_STOP=1 \
+            -c "SELECT now() AS keepalive_at, current_database() AS db;"
+          echo "Database is reachable — the project stays active."

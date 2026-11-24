@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { allFontVariableClasses } from "@/lib/fonts";
 
 export const metadata: Metadata = {
-  title: "pptxgen — code-first deck",
+  title: "Deck Studio",
   description:
     "A code-first presentation engine: slides as React components, presented in-app. No exports.",
 };
@@ -15,7 +15,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${allFontVariableClasses} h-full antialiased`}
+      className={`${allFontVariableClasses} h-full antialiased bg-background`}
     >
       <body className="min-h-full">
         <TooltipProvider>

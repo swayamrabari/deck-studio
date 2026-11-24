@@ -4,32 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { deckFiles, decks } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
-import {
-  applyDeckTitle,
-  DECK_CONFIG_PATH,
-} from "@/lib/starter";
-
-async function ownedDeck(id: string) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    };
-  }
-
-  const [deck] = await db
-    .select({ id: decks.id, ownerId: decks.ownerId })
-    .from(decks)
-    .where(eq(decks.id, id))
-    .limit(1);
-
-  if (!deck || deck.ownerId !== user.id) {
-    return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
-  }
-
-  return { deck };
-}
+import { authorizeDeck } from "@/lib/decks";
+import { readJsonBody } from "@/lib/http";
+import { applyDeckTitle, DECK_CONFIG_PATH } from "@/lib/starter";
 
 function revalidateDeck(id: string) {
   revalidatePath("/decks");
@@ -43,10 +20,11 @@ export async function PATCH(
   ctx: RouteContext<"/api/decks/[id]">
 ) {
   const { id } = await ctx.params;
-  const auth = await ownedDeck(id);
-  if (auth.error) return auth.error;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
-  const body = await request.json().catch(() => null);
+  const { data: body, error: bodyError } = await readJsonBody(request);
+  if (bodyError) return bodyError;
   const title =
     typeof body?.title === "string" ? body.title.trim().slice(0, 120) : "";
   if (!title) {
@@ -87,8 +65,8 @@ export async function DELETE(
   ctx: RouteContext<"/api/decks/[id]">
 ) {
   const { id } = await ctx.params;
-  const auth = await ownedDeck(id);
-  if (auth.error) return auth.error;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
   await db.delete(decks).where(eq(decks.id, id));
   revalidateDeck(id);

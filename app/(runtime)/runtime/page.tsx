@@ -12,11 +12,11 @@ import { SlideCanvas } from "@/components/deck/slide-canvas";
 import { SlideStepProvider } from "@/components/slides";
 import { setMediaBase } from "@/components/slides/media";
 import { compileDeck, type CompiledDeck } from "@/lib/runtime-compiler";
-import { DEFAULT_DECK_PROGRESS } from "@/lib/types";
 import type {
   RuntimeInMessage,
   RuntimeOutMessage,
 } from "@/lib/runtime-protocol";
+import { DEFAULT_DECK_PROGRESS } from "@/lib/types";
 
 /**
  * The runtime frame — loaded inside a sandboxed iframe by the workspace
@@ -106,7 +106,12 @@ export default function RuntimeFramePage() {
     }
 
     async function onMessage(event: MessageEvent) {
+      // Only same-origin hosts may drive this frame. Without the origin
+      // check any third-party page could embed /runtime, become its
+      // window.parent, and load attacker-authored deck code that then
+      // executes with full same-origin access (session cookies included).
       if (event.source !== window.parent) return;
+      if (event.origin !== window.location.origin) return;
       const message = event.data as RuntimeInMessage | null;
       if (!message || typeof message !== "object") return;
 
@@ -148,7 +153,7 @@ export default function RuntimeFramePage() {
           : {};
         if (loadSeq !== loadSeqRef.current) return;
 
-        const compiled = compileDeck(message.files, hostModules);
+        const compiled = await compileDeck(message.files, hostModules);
         setDeck(compiled);
         setError(null);
         setVersion((current) => current + 1);
@@ -191,6 +196,47 @@ export default function RuntimeFramePage() {
       window.location.origin
     );
   }, [deck, index, version, step]);
+
+  // Forward presenter navigation keys so the host keeps working while the
+  // frame (a separate document) holds keyboard focus. Nothing here acts on
+  // the key — the presenter decides; the preview host ignores it.
+  useEffect(() => {
+    const PRESENTER_KEYS = new Set([
+      "ArrowRight",
+      "ArrowLeft",
+      "PageDown",
+      "PageUp",
+      "Home",
+      "End",
+      " ",
+      "n",
+      "N",
+      "p",
+      "P",
+      "f",
+      "F",
+    ]);
+    function onKeyDown(event: KeyboardEvent) {
+      if (!PRESENTER_KEYS.has(event.key)) return;
+      if (event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      window.parent.postMessage(
+        { type: "deck:keydown", key: event.key } satisfies RuntimeOutMessage,
+        window.location.origin
+      );
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const current = deck?.slides[index] ?? null;
   const Layout = deck?.Layout ?? null;

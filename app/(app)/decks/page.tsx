@@ -7,6 +7,7 @@ import { UserMenu } from "@/components/decks/user-menu";
 import { db } from "@/db";
 import { deckFiles, decks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { isSlideFilePath } from "@/lib/runtime-protocol";
 
 // Auth-gated dashboard: reads the session cookie, so the route blocks on
 // the server instead of prerendering a shell.
@@ -23,19 +24,26 @@ export default async function DecksPage() {
     .orderBy(desc(decks.updatedAt));
 
   const ids = myDecks.map((deck) => deck.id);
+  // LIKE prefilter, then the exact slide rule (`deck/NN-name/page.tsx`) —
+  // the same predicate the workspace uses, so badges never disagree.
   const slideRows =
     ids.length > 0
       ? await db
-          .select({ deckId: deckFiles.deckId })
+          .select({ deckId: deckFiles.deckId, path: deckFiles.path })
           .from(deckFiles)
           .where(
-            and(inArray(deckFiles.deckId, ids), like(deckFiles.path, "%/page.tsx"))
+            and(
+              inArray(deckFiles.deckId, ids),
+              like(deckFiles.path, "%/page.tsx")
+            )
           )
       : [];
 
   const counts = new Map<string, number>();
   for (const row of slideRows) {
-    counts.set(row.deckId, (counts.get(row.deckId) ?? 0) + 1);
+    if (isSlideFilePath(row.path)) {
+      counts.set(row.deckId, (counts.get(row.deckId) ?? 0) + 1);
+    }
   }
 
   return (

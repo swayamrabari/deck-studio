@@ -15,11 +15,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { STARTER_TITLE } from "@/lib/deck-contract";
 
 export function NewDeckButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("My presentation");
+  const [title, setTitle] = useState(STARTER_TITLE);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +57,7 @@ export function NewDeckButton() {
     <>
       <Button
         onClick={() => {
-          setTitle("My presentation");
+          setTitle(STARTER_TITLE);
           setError(null);
           setOpen(true);
         }}

@@ -4,30 +4,30 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/db";
 import { deckMedia, decks } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
-import { getOwnedDeck } from "@/lib/decks";
+import { authorizeDeck } from "@/lib/decks";
 import { MAX_MEDIA_BYTES, sanitizeMediaName } from "@/lib/media";
 
-async function requireDeck(ctx: RouteContext<"/api/decks/[id]/media">) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
-  }
-  const { id } = await ctx.params;
-  const deck = await getOwnedDeck(id, user.id);
-  if (!deck) {
-    return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
-  }
-  return { deck };
-}
+/**
+ * Raster formats only. SVG is deliberately excluded: it is markup that
+ * executes script when opened as a top-level document, and media is
+ * served from this same origin behind an authenticated route.
+ */
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+]);
 
 /** Lists a deck's media (metadata only). */
 export async function GET(
   _request: Request,
   ctx: RouteContext<"/api/decks/[id]/media">
 ) {
-  const auth = await requireDeck(ctx);
-  if (auth.error) return auth.error;
+  const { id } = await ctx.params;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
   const items = await db
     .select({
@@ -48,17 +48,18 @@ export async function POST(
   request: Request,
   ctx: RouteContext<"/api/decks/[id]/media">
 ) {
-  const auth = await requireDeck(ctx);
-  if (auth.error) return auth.error;
+  const { id } = await ctx.params;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Attach a file." }, { status: 400 });
   }
-  if (!file.type.startsWith("image/")) {
+  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
     return NextResponse.json(
-      { error: "Only image uploads are supported." },
+      { error: "Only PNG, JPEG, GIF, WebP, or AVIF images are supported." },
       { status: 415 }
     );
   }

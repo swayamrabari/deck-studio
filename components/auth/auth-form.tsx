@@ -25,8 +25,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
+        // replace() already triggers a fresh server render of /decks,
+        // which reads the new session cookie.
         router.replace("/decks");
-        router.refresh();
       } else {
         const data = (await res.json().catch(() => null)) as {
           error?: string;

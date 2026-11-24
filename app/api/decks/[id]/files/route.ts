@@ -1,31 +1,25 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, like, or } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
-import { db } from "@/db";
+import { db, isUniqueViolation } from "@/db";
 import { deckFiles, decks } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
 import {
-  getOwnedDeck,
+  authorizeDeck,
   isInsidePath,
   isValidDeckPath,
   MAX_FILE_BYTES,
 } from "@/lib/decks";
+import { readJsonBody } from "@/lib/http";
 
 /**
  * Deck file CRUD — the storage API behind the editor workspace.
  * Every handler checks auth + deck ownership before touching rows.
  */
 
-async function requireDeck(ctx: RouteContext<"/api/decks/[id]/files">) {
-  const user = await getCurrentUser();
-  if (!user) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
-
-  const { id } = await ctx.params;
-  const deck = await getOwnedDeck(id, user.id);
-  if (!deck) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
-
-  return { deck };
+function fileTooLarge(content: string): boolean {
+  // Byte-accurate: a 200k-char file of multibyte text is up to 600 KB.
+  return Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES;
 }
 
 async function touchDeck(deckId: string) {
@@ -36,8 +30,9 @@ export async function GET(
   _request: Request,
   ctx: RouteContext<"/api/decks/[id]/files">
 ) {
-  const auth = await requireDeck(ctx);
-  if (auth.error) return auth.error;
+  const { id } = await ctx.params;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
   const files = await db
     .select({ path: deckFiles.path, content: deckFiles.content })
@@ -52,10 +47,12 @@ export async function POST(
   request: Request,
   ctx: RouteContext<"/api/decks/[id]/files">
 ) {
-  const auth = await requireDeck(ctx);
-  if (auth.error) return auth.error;
+  const { id } = await ctx.params;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
-  const body = await request.json().catch(() => null);
+  const { data: body, error: bodyError } = await readJsonBody(request);
+  if (bodyError) return bodyError;
   const path = typeof body?.path === "string" ? body.path.trim() : "";
   const content = typeof body?.content === "string" ? body.content : "";
 
@@ -65,31 +62,29 @@ export async function POST(
       { status: 400 }
     );
   }
-  if (content.length > MAX_FILE_BYTES) {
+  if (fileTooLarge(content)) {
     return NextResponse.json({ error: "File is too large." }, { status: 413 });
   }
 
-  const existing = await db
-    .select({ id: deckFiles.id })
-    .from(deckFiles)
-    .where(
-      and(eq(deckFiles.deckId, auth.deck.id), eq(deckFiles.path, path))
-    )
-    .limit(1);
-  if (existing.length > 0) {
-    return NextResponse.json(
-      { error: "A file with this path already exists." },
-      { status: 409 }
-    );
+  try {
+    await db.insert(deckFiles).values({
+      id: randomUUID(),
+      deckId: auth.deck.id,
+      path,
+      content,
+      updatedAt: new Date(),
+    });
+  } catch (error) {
+    // The (deckId, path) unique index is the real guard — surface the
+    // concurrent-create race as a conflict instead of a 500.
+    if (isUniqueViolation(error)) {
+      return NextResponse.json(
+        { error: "A file with this path already exists." },
+        { status: 409 }
+      );
+    }
+    throw error;
   }
-
-  await db.insert(deckFiles).values({
-    id: randomUUID(),
-    deckId: auth.deck.id,
-    path,
-    content,
-    updatedAt: new Date(),
-  });
   await touchDeck(auth.deck.id);
 
   return NextResponse.json({ path }, { status: 201 });
@@ -99,17 +94,19 @@ export async function PUT(
   request: Request,
   ctx: RouteContext<"/api/decks/[id]/files">
 ) {
-  const auth = await requireDeck(ctx);
-  if (auth.error) return auth.error;
+  const { id } = await ctx.params;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
-  const body = await request.json().catch(() => null);
+  const { data: body, error: bodyError } = await readJsonBody(request);
+  if (bodyError) return bodyError;
   const path = typeof body?.path === "string" ? body.path : "";
   const content = typeof body?.content === "string" ? body.content : null;
 
   if (!isValidDeckPath(path) || content === null) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-  if (content.length > MAX_FILE_BYTES) {
+  if (fileTooLarge(content)) {
     return NextResponse.json({ error: "File is too large." }, { status: 413 });
   }
 
@@ -120,6 +117,7 @@ export async function PUT(
       and(eq(deckFiles.deckId, auth.deck.id), eq(deckFiles.path, path))
     )
     .limit(1);
+
   if (existing.length === 0) {
     return NextResponse.json({ error: "File not found." }, { status: 404 });
   }
@@ -136,15 +134,21 @@ export async function PUT(
 /**
  * Rename / move a file or folder subtree: updates every path that equals
  * `from` or lives beneath it.
+ *
+ * The moving set is computed in JS with exact prefix semantics. A SQL LIKE
+ * would be wrong here: `_` (allowed in deck paths) is a LIKE wildcard, so
+ * renaming `deck/01_why` would also drag `deck/01-why` along.
  */
 export async function PATCH(
   request: Request,
   ctx: RouteContext<"/api/decks/[id]/files">
 ) {
-  const auth = await requireDeck(ctx);
-  if (auth.error) return auth.error;
+  const { id } = await ctx.params;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
-  const body = await request.json().catch(() => null);
+  const { data: body, error: bodyError } = await readJsonBody(request);
+  if (bodyError) return bodyError;
   const from = typeof body?.from === "string" ? body.from.trim() : "";
   const to = typeof body?.to === "string" ? body.to.trim() : "";
 
@@ -152,30 +156,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid rename." }, { status: 400 });
   }
 
-  const rows = await db
+  const allRows = await db
     .select({ id: deckFiles.id, path: deckFiles.path })
     .from(deckFiles)
-    .where(
-      and(
-        eq(deckFiles.deckId, auth.deck.id),
-        or(eq(deckFiles.path, from), like(deckFiles.path, `${from}/%`))
-      )
-    );
+    .where(eq(deckFiles.deckId, auth.deck.id));
 
+  const rows = allRows.filter((row) => isInsidePath(row.path, from));
   if (rows.length === 0) {
     return NextResponse.json({ error: "Nothing to rename." }, { status: 404 });
   }
 
   const moving = new Set(rows.map((row) => row.path));
-  const allPaths = await db
-    .select({ path: deckFiles.path })
-    .from(deckFiles)
-    .where(eq(deckFiles.deckId, auth.deck.id));
-
-  const conflict = allPaths.some(
-    (row) =>
-      !moving.has(row.path) &&
-      isInsidePath(row.path, to)
+  const conflict = allRows.some(
+    (row) => !moving.has(row.path) && isInsidePath(row.path, to)
   );
   if (conflict) {
     return NextResponse.json(
@@ -203,8 +196,9 @@ export async function DELETE(
   request: Request,
   ctx: RouteContext<"/api/decks/[id]/files">
 ) {
-  const auth = await requireDeck(ctx);
-  if (auth.error) return auth.error;
+  const { id } = await ctx.params;
+  const auth = await authorizeDeck(id);
+  if ("error" in auth) return auth.error;
 
   const url = new URL(request.url);
   const path = url.searchParams.get("path") ?? "";
@@ -214,33 +208,29 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid path." }, { status: 400 });
   }
 
-  const rows = await db
+  // Exact prefix semantics (see PATCH) instead of a LIKE, which would
+  // treat `_` in the path as a wildcard.
+  const allRows = await db
     .select({ id: deckFiles.id, path: deckFiles.path })
     .from(deckFiles)
-    .where(
-      and(
-        eq(deckFiles.deckId, auth.deck.id),
-        recursive
-          ? or(eq(deckFiles.path, path), like(deckFiles.path, `${path}/%`))
-          : eq(deckFiles.path, path)
-      )
-    );
+    .where(eq(deckFiles.deckId, auth.deck.id));
+  const rows = allRows.filter((row) =>
+    recursive ? isInsidePath(row.path, path) : row.path === path
+  );
 
   if (rows.length === 0) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
-  if (!recursive && rows.length > 1) {
-    return NextResponse.json(
-      { error: "That is a folder — use recursive delete." },
-      { status: 400 }
-    );
-  }
 
+  const now = new Date();
   await db.transaction(async (tx) => {
-    for (const row of rows) {
-      await tx.delete(deckFiles).where(eq(deckFiles.id, row.id));
-    }
-    await tx.update(decks).set({ updatedAt: new Date() }).where(eq(decks.id, auth.deck.id));
+    await tx.delete(deckFiles).where(
+      inArray(
+        deckFiles.id,
+        rows.map((row) => row.id)
+      )
+    );
+    await tx.update(decks).set({ updatedAt: now }).where(eq(decks.id, auth.deck.id));
   });
 
   return NextResponse.json({ ok: true, deleted: rows.length });

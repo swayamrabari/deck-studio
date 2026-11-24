@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AuthForm } from "@/components/auth/auth-form";
@@ -9,10 +10,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth";
+import { requireUser, signupsOpen } from "@/lib/auth";
 
 // Auth-aware: reads the session cookie, so the route blocks on the server.
 export const instant = false;
+
+export const metadata: Metadata = {
+  title: "Sign in — pptxgen",
+};
 
 export default async function LoginPage() {
   const user = await requireUser();
@@ -27,15 +32,17 @@ export default async function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <AuthForm mode="login" />
-          <p className="text-center text-xs text-muted-foreground">
-            New here?{" "}
-            <Link
-              href="/signup"
-              className="text-foreground underline underline-offset-4"
-            >
-              Create an account
-            </Link>
-          </p>
+          {signupsOpen() ? (
+            <p className="text-center text-xs text-muted-foreground">
+              New here?{" "}
+              <Link
+                href="/signup"
+                className="text-foreground underline underline-offset-4"
+              >
+                Create an account
+              </Link>
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     </div>

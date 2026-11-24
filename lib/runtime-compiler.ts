@@ -1,4 +1,3 @@
-import Babel from "@babel/standalone";
 import * as React from "react";
 import * as JsxRuntime from "react/jsx-runtime";
 import type { ComponentType, ReactNode } from "react";
@@ -12,6 +11,20 @@ import type { DeckConfig, DeckProgressConfig, SlideMeta } from "./types";
  * module map (deck files + host-provided engine modules), and a tiny CJS
  * loader. Everything runs in the runtime frame — never on the server.
  */
+
+type BabelStandalone = typeof import("@babel/standalone");
+
+/**
+ * @babel/standalone is a ~3 MB payload. Like lucide-react, it is a lazy
+ * chunk fetched the first time a deck actually compiles; the promise is
+ * cached for the lifetime of the frame.
+ */
+let babelPromise: Promise<BabelStandalone> | null = null;
+
+function loadBabel(): Promise<BabelStandalone> {
+  babelPromise ??= import("@babel/standalone");
+  return babelPromise;
+}
 
 export interface CompiledSlide {
   path: string;
@@ -62,15 +75,9 @@ function normalizeConfig(
 ): DeckConfig & { progress: DeckProgressConfig } {
   const source = (raw ?? {}) as Partial<DeckConfig>;
   const aspect = source.aspect === "4:3" ? "4:3" : "16:9";
-  const transition = ["fade", "slide", "zoom"].includes(
-    source.defaultTransition ?? ""
-  )
-    ? (source.defaultTransition as DeckConfig["defaultTransition"])
-    : "fade";
   return {
     title: typeof source.title === "string" ? source.title : "",
     aspect,
-    defaultTransition: transition,
     slideNumbers:
       typeof source.slideNumbers === "boolean" ? source.slideNumbers : true,
     progress: normalizeProgress(source.progress),
@@ -95,7 +102,11 @@ function normalizePath(path: string): string {
   return parts.join("/");
 }
 
-function compileModule(path: string, source: string): string {
+function compileModule(
+  Babel: BabelStandalone,
+  path: string,
+  source: string
+): string {
   const result = Babel.transform(source, {
     filename: path,
     sourceType: "module",
@@ -115,10 +126,11 @@ function compileModule(path: string, source: string): string {
  * expensive to load (lazily imported icon libraries, for example) only
  * when the deck actually imports them.
  */
-export function compileDeck(
+export async function compileDeck(
   files: Record<string, string>,
   hostModules: Record<string, unknown> = {}
-): CompiledDeck {
+): Promise<CompiledDeck> {
+  const Babel = await loadBabel();
   const modules = { ...ENGINE_MODULES, ...hostModules };
   const slidePaths = slideFilePaths(files);
   if (slidePaths.length === 0) {
@@ -167,32 +179,32 @@ export function compileDeck(
       throw new Error(`Cannot find module "${id}".`);
     }
 
-    const code = compileModule(id, source);
-    const module = { exports: {} as Record<string, unknown> };
+    const code = compileModule(Babel, id, source);
+    const mod = { exports: {} as Record<string, unknown> };
     // Register before evaluating so circular imports resolve.
-    cache.set(id, module.exports);
+    cache.set(id, mod.exports);
     const factory = new Function("require", "module", "exports", code);
     factory(
       (specifier: string) => requireModule(resolveSpecifier(specifier, id)),
-      module,
-      module.exports
+      mod,
+      mod.exports
     );
-    cache.set(id, module.exports);
-    return module.exports;
+    cache.set(id, mod.exports);
+    return mod.exports;
   }
 
   const slides = slidePaths.map((path) => {
-    const module = requireModule(path) as {
+    const slideModule = requireModule(path) as {
       default?: unknown;
       meta?: SlideMeta;
     };
-    if (typeof module.default !== "function") {
+    if (typeof slideModule.default !== "function") {
       throw new Error(`${path} must default-export a slide component.`);
     }
     return {
       path,
-      Component: module.default as ComponentType,
-      meta: module.meta ?? {},
+      Component: slideModule.default as ComponentType,
+      meta: slideModule.meta ?? {},
     };
   });
 

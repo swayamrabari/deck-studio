@@ -1,16 +1,11 @@
 import type { ComponentType, ReactNode } from "react";
 
-/** Transitions supported between slides by the presenter. */
-export type SlideTransition = "fade" | "slide" | "zoom";
-
 /** Per-slide metadata, exported as `meta` from each slide file. */
 export interface SlideMeta {
   /** Human-readable title — used by tooling/overview. */
   title?: string;
   /** Freeform notes metadata (kept for deck authors; not surfaced in the presenter). */
   notes?: string;
-  /** Per-slide transition override; the deck default is used otherwise. */
-  transition?: SlideTransition;
 }
 
 /**
@@ -66,8 +61,6 @@ export interface DeckConfig {
   title: string;
   /** Logical canvas size; slides are authored at these dimensions. */
   aspect: SlideAspect;
-  /** Default transition used between slides (per-slide `meta` wins). */
-  defaultTransition: SlideTransition;
   /** Show slide numbers on the slide chrome. */
   slideNumbers: boolean;
   /** Optional presenter progress-bar customization. */

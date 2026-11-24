@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlignLeftIcon,
   ArrowLeftIcon,
   FilePlusIcon,
+  FolderPlusIcon,
   ImagePlusIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
@@ -44,89 +45,24 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { cn } from "cn";
+import { slideFilePaths } from "@/lib/runtime-protocol";
 import { CodeEditor, type CodeEditorHandle } from "./code-editor";
 import { DeckPreview } from "./deck-preview";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileTree } from "./file-tree";
+import { PathDialog } from "./path-dialog";
+import {
+  baseName,
+  newSlideContent,
+  nextSlideNumber,
+  renamedFolderPath,
+  rewriteKeys,
+  slideSlug,
+  type DeckMediaItem,
+  type WorkspaceDialog,
+} from "./workspace-utils";
 
-function slideSlug(name: string) {
-  return (
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 48) || "new-slide"
-  );
-}
-
-function nextSlideNumber(files: Record<string, string>) {
-  const usedNumbers = Object.keys(files)
-    .map((path) => /^deck\/(\d+)-/.exec(path)?.[1])
-    .filter((n): n is string => Boolean(n))
-    .map(Number);
-  const next = (usedNumbers.length > 0 ? Math.max(...usedNumbers) : 0) + 1;
-  return String(next).padStart(2, "0");
-}
-
-/** Renames the last path segment; slide folders keep their number prefix. */
-function renamedFolderPath(path: string, value: string) {
-  const parent = path.split("/").slice(0, -1).join("/");
-  let name = slideSlug(value);
-  const number = /^deck\/(\d+)-/.exec(path)?.[1];
-  if (number && !/^\d+-/.test(name)) name = `${number}-${name}`;
-  return `${parent}/${name}`;
-}
-
-function newSlideContent(title: string) {
-  return `import { SparklesIcon } from "lucide-react";
-import type { SlideMeta } from "@/lib/types";
-
-export const meta: SlideMeta = {
-  title: ${JSON.stringify(title)},
-  notes: "",
-};
-
-export default function NewSlide() {
-  return (
-    <div className="flex h-full flex-col justify-center">
-      <div className="flex size-14 items-center justify-center rounded-2xl border border-deck-surface bg-deck-surface/40 text-deck-accent">
-        <SparklesIcon className="size-6" />
-      </div>
-      <p className="mt-8 font-mono text-sm uppercase tracking-[0.3em] text-deck-muted">
-        New slide
-      </p>
-      <h2 className="mt-3 font-display text-7xl font-medium tracking-tight text-deck-fg">
-        {${JSON.stringify(title)}}
-      </h2>
-      <p className="mt-6 max-w-2xl font-body text-xl leading-relaxed text-deck-muted">
-        Replace this with your story. Everything here is a React component.
-      </p>
-    </div>
-  );
-}
-`;
-}
-
-type WorkspaceDialog =
-  | { kind: "new-slide" }
-  | { kind: "start-fresh" }
-  | { kind: "new-file" }
-  | { kind: "rename"; path: string; folder: boolean }
-  | { kind: "rename-deck" }
-  | { kind: "delete"; path: string; folder: boolean }
-  | { kind: "media"; name: string }
-  | null;
-
-function baseName(path: string) {
-  return path.split("/").pop() ?? path;
-}
-
-export interface DeckMediaItem {
-  name: string;
-  size: number;
-  mime: string;
-}
+export type { DeckMediaItem };
 
 export function DeckWorkspace({
   deckId,
@@ -160,6 +96,9 @@ export function DeckWorkspace({
   const [savingCount, setSavingCount] = useState(0);
   const [draftValue, setDraftValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // VS Code-style folders that own no files yet: they render in the tree
+  // immediately and become permanent the moment a file is created inside.
+  const [emptyFolders, setEmptyFolders] = useState<string[]>([]);
 
   const filesRef = useRef(files);
   useEffect(() => {
@@ -218,12 +157,18 @@ export function DeckWorkspace({
       `/api/decks/${deckId}/media/${encodeURIComponent(name)}`,
       { method: "DELETE" }
     );
-    if (res.ok) {
-      setMediaList((prev) => prev.filter((item) => item.name !== name));
-      setDialog((current) =>
-        current?.kind === "media" && current.name === name ? null : current
-      );
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setError(data?.error ?? "Could not delete the media file.");
+      return;
     }
+    setMediaList((prev) => prev.filter((item) => item.name !== name));
+    setDialog((current) =>
+      current?.kind === "media" && current.name === name ? null : current
+    );
+    setError(null);
   }
 
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -234,30 +179,46 @@ export function DeckWorkspace({
     };
   }, []);
 
+  // One in-flight save chain per path: Ctrl+S can race the 800 ms debounce
+  // timer, and unordered PUTs could let an older body land last on the
+  // server while a newer one is marked saved. Chaining keeps each path's
+  // requests ordered and each request snapshots the exact body it sent.
+  const savesRef = useRef(new Map<string, Promise<void>>());
+
   async function persist(path: string) {
-    const content = filesRef.current[path];
-    if (content === undefined) return;
+    if (filesRef.current[path] === undefined) return;
 
     setSavingCount((count) => count + 1);
-    try {
+    const prior = savesRef.current.get(path) ?? Promise.resolve();
+    const run = prior.catch(() => {}).then(async () => {
+      const content = filesRef.current[path];
+      if (content === undefined) return;
+
       const res = await fetch(`/api/decks/${deckId}/files`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path, content }),
       });
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new Error(data?.error ?? "Save failed");
       }
-      const savedContent = filesRef.current[path];
-      if (savedContent !== undefined) {
-        setSavedFiles((prev) => ({ ...prev, [path]: savedContent }));
-      }
+      // Mark exactly the content that was sent. If the user kept typing,
+      // files[path] is newer and the tab stays dirty until its own save.
+      setSavedFiles((prev) => ({ ...prev, [path]: content }));
       setError(null);
+    });
+
+    savesRef.current.set(path, run);
+    try {
+      await run;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSavingCount((count) => count - 1);
+      if (savesRef.current.get(path) === run) savesRef.current.delete(path);
     }
   }
 
@@ -286,6 +247,12 @@ export function DeckWorkspace({
   }
 
   async function closeTab(path: string) {
+    // A timer armed before closing could re-save the just-closed file.
+    const timer = timersRef.current.get(path);
+    if (timer) {
+      clearTimeout(timer);
+      timersRef.current.delete(path);
+    }
     if (files[path] !== savedFiles[path]) {
       await persist(path);
     }
@@ -294,22 +261,6 @@ export function DeckWorkspace({
     if (activePath === path) {
       setActivePath(remaining[remaining.length - 1] ?? null);
     }
-  }
-
-  function rewriteKeys(
-    map: Record<string, string>,
-    from: string,
-    to: string
-  ): Record<string, string> {
-    const out: Record<string, string> = {};
-    for (const [key, value] of Object.entries(map)) {
-      if (key === from || key.startsWith(`${from}/`)) {
-        out[to + key.slice(from.length)] = value;
-      } else {
-        out[key] = value;
-      }
-    }
-    return out;
   }
 
   async function createFile(path: string, content: string) {
@@ -327,6 +278,10 @@ export function DeckWorkspace({
       }
       setFiles((prev) => ({ ...prev, [path]: content }));
       setSavedFiles((prev) => ({ ...prev, [path]: content }));
+      // The new file makes every pending folder on its path permanent.
+      setEmptyFolders((prev) =>
+        prev.filter((folder) => !path.startsWith(`${folder}/`))
+      );
       openFile(path);
       setError(null);
       return true;
@@ -502,6 +457,16 @@ export function DeckWorkspace({
   }
 
   async function deletePath(path: string, recursive: boolean) {
+    // Pending folders own no rows — removing them is client-side only.
+    if (emptyFolders.includes(path)) {
+      setEmptyFolders((prev) =>
+        prev.filter((folder) => folder !== path && !folder.startsWith(`${path}/`))
+      );
+      setDialog(null);
+      setError(null);
+      return;
+    }
+
     setPending(true);
     try {
       const res = await fetch(
@@ -513,17 +478,27 @@ export function DeckWorkspace({
         setError(data?.error ?? "Delete failed.");
         return;
       }
+      // Cancel pending autosaves for the removed path(s): a stale timer
+      // would PUT to a deleted file and flash a phantom error.
+      const isRemoved = (candidate: string) =>
+        recursive
+          ? candidate === path || candidate.startsWith(`${path}/`)
+          : candidate === path;
+      for (const [timerPath, timer] of timersRef.current) {
+        if (isRemoved(timerPath)) {
+          clearTimeout(timer);
+          timersRef.current.delete(timerPath);
+        }
+      }
       const withoutPath = (map: Record<string, string>) =>
         Object.fromEntries(
-          Object.entries(map).filter(
-            ([key]) => !(key === path || key.startsWith(`${path}/`))
-          )
+          Object.entries(map).filter(([key]) => !isRemoved(key))
         );
       setFiles((prev) => withoutPath(prev));
       setSavedFiles((prev) => withoutPath(prev));
-      const remaining = openPaths.filter(
-        (openPath) => !(openPath === path || openPath.startsWith(`${path}/`))
-      );
+      // Drop pending folders that lived inside the removed subtree too.
+      setEmptyFolders((prev) => prev.filter((folder) => !isRemoved(folder)));
+      const remaining = openPaths.filter((openPath) => !isRemoved(openPath));
       setOpenPaths(remaining);
       if (activePath && !remaining.includes(activePath)) {
         setActivePath(remaining[remaining.length - 1] ?? null);
@@ -579,6 +554,15 @@ export function DeckWorkspace({
     ? `01-${slideSlug(draftValue)}`
     : "01-…";
 
+  // Presentation position per slide path ("01", "02", …) — labels the
+  // page.tsx tabs and tree rows so identical names stay distinguishable.
+  const slideNumbers = new Map(
+    slideFilePaths(files).map((path, index) => [
+      path,
+      String(index + 1).padStart(2, "0"),
+    ])
+  );
+
   const renameParent =
     dialog?.kind === "rename"
       ? dialog.path.split("/").slice(0, -1).join("/")
@@ -591,7 +575,7 @@ export function DeckWorkspace({
 
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-border px-3">
+      <header className="flex h-15 shrink-0 items-center justify-between gap-4 border-b border-border px-3">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href="/decks"
@@ -693,64 +677,86 @@ export function DeckWorkspace({
             <span className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               deck/
             </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button variant="ghost" size="icon-xs" aria-label="Add" />
-                }
+            <div className="flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="New file"
+                title="New file"
+                onClick={() => {
+                  setDraftValue("");
+                  setDialog({ kind: "new-file", base: "deck" });
+                }}
               >
-                <PlusIcon />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-60">
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDraftValue("");
-                    setDialog({ kind: "new-slide" });
-                  }}
+                <FilePlusIcon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="New folder"
+                title="New folder"
+                onClick={() => {
+                  setDraftValue("");
+                  setDialog({ kind: "new-folder" });
+                }}
+              >
+                <FolderPlusIcon />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button variant="ghost" size="icon-xs" aria-label="More actions" />
+                  }
                 >
-                  <PresentationIcon />
-                  New slide
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDraftValue("deck/");
-                    setDialog({ kind: "new-file" });
-                  }}
-                >
-                  <FilePlusIcon />
-                  New file…
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => mediaInputRef.current?.click()}
-                >
-                  <ImagePlusIcon />
-                  Upload media…
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => {
-                    setDraftValue("Untitled");
-                    setDialog({ kind: "start-fresh" });
-                  }}
-                >
-                  <RotateCcwIcon />
-                  Start fresh…
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <PlusIcon />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-60">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDraftValue("");
+                      setDialog({ kind: "new-slide" });
+                    }}
+                  >
+                    <PresentationIcon />
+                    New slide
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => mediaInputRef.current?.click()}
+                  >
+                    <ImagePlusIcon />
+                    Upload media…
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      setDraftValue("Untitled");
+                      setDialog({ kind: "start-fresh" });
+                    }}
+                  >
+                    <RotateCcwIcon />
+                    Start fresh…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           <ScrollArea className="min-h-0 flex-1">
             <div className="py-2">
               <FileTree
                 paths={Object.keys(files)}
+                emptyFolders={emptyFolders}
                 activePath={activePath}
                 onOpen={openFile}
+                onAddFile={(folderPath) => {
+                  setDraftValue("");
+                  setDialog({ kind: "new-file", base: folderPath });
+                }}
                 onRename={(path, folder) => {
                   setDraftValue(
                     folder
                       ? baseName(path).replace(/^\d+-/, "")
-                      : path
+                      : baseName(path)
                   );
                   setDialog({ kind: "rename", path, folder });
                 }}
@@ -791,13 +797,20 @@ export function DeckWorkspace({
                         }
                       }}
                       className={cn(
-                        "group flex shrink-0 cursor-pointer items-center gap-2 border-r border-border px-3 font-ui-mono text-xs transition-colors",
+                        "group flex shrink-0 cursor-pointer items-center gap-2 border-r border-border px-3 font-ui-mono text-xs transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:ring-inset",
                         isActive
                           ? "bg-card text-foreground"
                           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                       )}
                     >
-                      <span className="max-w-44 truncate">{baseName(path)}</span>
+                      <span className="max-w-44 truncate">
+                        {baseName(path)}
+                        {slideNumbers.get(path) ? (
+                          <span className="ml-1.5 text-muted-foreground/70">
+                            {slideNumbers.get(path)}
+                          </span>
+                        ) : null}
+                      </span>
                       {isDirty ? (
                         <span className="size-1.5 rounded-full bg-foreground" />
                       ) : null}
@@ -1054,19 +1067,108 @@ export function DeckWorkspace({
       <PathDialog
         open={dialog?.kind === "new-file"}
         title="New file"
-        description="Paths live under deck/ — folders are created implicitly. Example: deck/04-metrics/page.tsx"
+        description="Type the path relative to the folder — new folders along the way are created automatically."
+        basePath={dialog?.kind === "new-file" ? `${dialog.base}/` : undefined}
+        placeholder={
+          dialog?.kind === "new-file" && dialog.base === "deck"
+            ? "components/card.tsx"
+            : "card.tsx"
+        }
         draft={draftValue}
         onDraftChange={setDraftValue}
         confirmLabel="Create file"
         pending={pending}
         onCancel={() => setDialog(null)}
         onConfirm={async () => {
-          const path = draftValue.trim();
-          if (!path.startsWith("deck/")) {
-            setError("Paths must start with deck/");
+          if (dialog?.kind !== "new-file") return;
+          const name = draftValue.trim();
+          const path = `${dialog.base}/${name}`;
+          if (!name) {
+            setError("Enter a file name.");
+            return;
+          }
+          if (name.endsWith("/")) {
+            setError(
+              "End with the file name — folders along the way are created automatically."
+            );
+            return;
+          }
+          if (Object.keys(files).includes(path)) {
+            setError("A file with this name already exists here.");
+            return;
+          }
+          // A "folder" path would create a file row that shadows the real
+          // folder — guide to the file-inside form instead.
+          const folderExists = Object.keys(files).some(
+            (existing) => existing.startsWith(`${path}/`)
+          );
+          if (folderExists) {
+            setError(
+              "That name is already a folder here — add the file inside it instead."
+            );
+            return;
+          }
+          // The inverse collision: an existing file sits where a folder
+          // would need to be (e.g. file "deck/components" vs new
+          // "deck/components/card.tsx") — it would duplicate rows in the
+          // tree. Ask the user to clear the name first.
+          const blockedByFile = Object.keys(files).some(
+            (existing) => path.startsWith(`${existing}/`)
+          );
+          if (blockedByFile) {
+            setError(
+              "A file already occupies a parent segment of that path — rename or delete it first."
+            );
             return;
           }
           if (await createFile(path, "")) setDialog(null);
+        }}
+      />
+
+      <PathDialog
+        open={dialog?.kind === "new-folder"}
+        title="New folder"
+        description="The folder appears in the tree right away — add files with the folder's + button; the first file inside makes it a permanent part of the deck."
+        basePath="deck/"
+        placeholder="components"
+        draft={draftValue}
+        onDraftChange={setDraftValue}
+        confirmLabel="Create folder"
+        pending={false}
+        onCancel={() => setDialog(null)}
+        onConfirm={() => {
+          const name = draftValue.trim().replace(/\/+$/, "");
+          const path = name ? `deck/${name}` : "";
+          if (!name) {
+            setError("Enter a folder name.");
+            return;
+          }
+          if (files[path] !== undefined) {
+            setError("A file with this name already exists.");
+            return;
+          }
+          if (
+            emptyFolders.includes(path) ||
+            Object.keys(files).some((existing) =>
+              existing.startsWith(`${path}/`)
+            )
+          ) {
+            setError("A folder with this name already exists.");
+            return;
+          }
+          // A file sitting on a parent segment would collide with the new
+          // folder in the tree — clear the name first.
+          if (
+            Object.keys(files).some((existing) => path.startsWith(`${existing}/`))
+          ) {
+            setError(
+              "A file already occupies a parent segment of that path — rename or delete it first."
+            );
+            return;
+          }
+          setEmptyFolders((prev) => [...prev, path]);
+          setError(null);
+          setDialog(null);
         }}
       />
 
@@ -1080,10 +1182,17 @@ export function DeckWorkspace({
         description={
           dialog?.kind === "rename" && dialog.folder
             ? "Renames the slide folder and every file inside it. The number stays."
-            : "Renames the file in place."
+            : "Renames the file inside its folder."
         }
         label={
-          dialog?.kind === "rename" && dialog.folder ? "Slide name" : "Path"
+          dialog?.kind === "rename" && dialog.folder
+            ? "Slide name"
+            : "File name"
+        }
+        basePath={
+          dialog?.kind === "rename" && !dialog.folder
+            ? `${renameParent}/`
+            : undefined
         }
         preview={
           renameFolderPreview ? (
@@ -1098,16 +1207,41 @@ export function DeckWorkspace({
         pending={pending}
         onCancel={() => setDialog(null)}
         onConfirm={() => {
-          if (dialog?.kind === "rename") {
-            if (dialog.folder && !draftValue.trim()) {
-              setError("Folder name is required.");
+          if (dialog?.kind !== "rename") return;
+          const name = draftValue.trim();
+          if (!name) {
+            setError(
+              dialog.folder ? "Slide name is required." : "File name is required."
+            );
+            return;
+          }
+          const to = dialog.folder
+            ? renamedFolderPath(dialog.path, name)
+            : `${renameParent}/${name}`;
+          if (to === dialog.path) {
+            setDialog(null);
+            return;
+          }
+          if (!dialog.folder) {
+            // File renames stay inside their folder — just the name.
+            if (name.includes("/")) {
+              setError(
+                "Rename stays inside the folder — enter just the file name."
+              );
               return;
             }
-            const to = dialog.folder
-              ? renamedFolderPath(dialog.path, draftValue)
-              : draftValue.trim();
-            void renamePath(dialog.path, to);
+            if (!/^[A-Za-z0-9._-]+$/.test(name)) {
+              setError(
+                "File names use letters, numbers, dots, dashes, and underscores."
+              );
+              return;
+            }
           }
+          if (files[to] !== undefined) {
+            setError("A file with this name already exists.");
+            return;
+          }
+          void renamePath(dialog.path, to);
         }}
       />
 
@@ -1126,7 +1260,9 @@ export function DeckWorkspace({
             </DialogTitle>
             <DialogDescription>
               {dialog?.kind === "delete" && dialog.folder
-                ? `This removes ${deleteSubtreeCount} file${deleteSubtreeCount === 1 ? "" : "s"} under ${dialog.path}. This cannot be undone.`
+                ? deleteSubtreeCount === 0 && emptyFolders.includes(dialog.path)
+                  ? "This folder is empty and not saved yet — removing it changes nothing on the server."
+                  : `This removes ${deleteSubtreeCount} file${deleteSubtreeCount === 1 ? "" : "s"} under ${dialog.path}. This cannot be undone.`
                 : "This permanently removes the file from the deck."}
             </DialogDescription>
           </DialogHeader>
@@ -1193,74 +1329,5 @@ export function DeckWorkspace({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function PathDialog({
-  open,
-  title,
-  description,
-  label = "Path",
-  preview,
-  draft,
-  onDraftChange,
-  confirmLabel,
-  pending,
-  onCancel,
-  onConfirm,
-}: {
-  open: boolean;
-  title: string;
-  description: string;
-  label?: string;
-  preview?: ReactNode;
-  draft: string;
-  onDraftChange: (value: string) => void;
-  confirmLabel: string;
-  pending: boolean;
-  onCancel: () => void;
-  onConfirm: () => void | Promise<void>;
-}) {
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onCancel();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2">
-          <Label htmlFor="deck-path">{label}</Label>
-          <Input
-            id="deck-path"
-            value={draft}
-            autoFocus
-            spellCheck={false}
-            className="font-ui-mono text-xs"
-            onChange={(event) => onDraftChange(event.target.value)}
-            onFocus={(event) => event.target.select()}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                void onConfirm();
-              }
-            }}
-          />
-          {preview}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={pending}>
-            Cancel
-          </Button>
-          <Button onClick={() => void onConfirm()} disabled={pending}>
-            {pending ? "Working…" : confirmLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

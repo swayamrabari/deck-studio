@@ -21,8 +21,8 @@ import type {
 /**
  * Hosted presenter: the runtime frame at full viewport, driven by host
  * state. Keyboard control, fullscreen, ?s=&st= URL sync, progress bar,
- * cross-frame fades, and step-aware navigation through `<Appear>`
- * fragments.
+ * and step-aware navigation through `<Appear>` fragments. Slide changes
+ * are instant cuts — there are no transition effects by design.
  */
 export function DeckPresenter({
   deckId,
@@ -44,7 +44,6 @@ export function DeckPresenter({
   const [index, setIndex] = useState(initialSlide);
   const [step, setStep] = useState(initialStep);
   const [totalSteps, setTotalSteps] = useState(0);
-  const [fading, setFading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [progressConfig, setProgressConfig] = useState(DEFAULT_DECK_PROGRESS);
@@ -74,34 +73,6 @@ export function DeckPresenter({
       message,
       window.location.origin
     );
-  }, []);
-
-  // Runtime handshake + status.
-  useEffect(() => {
-    function onMessage(event: MessageEvent) {
-      if (event.source !== frameRef.current?.contentWindow) return;
-      const message = event.data as RuntimeOutMessage | null;
-      if (!message || typeof message !== "object") return;
-
-      if (message.type === "deck:frame-ready") {
-        setReady(true);
-      } else if (message.type === "deck:ready") {
-        setError(null);
-        setSlideCount(message.slideCount);
-        setProgressConfig(message.progress ?? DEFAULT_DECK_PROGRESS);
-        setIndex((previous) => Math.min(previous, message.slideCount - 1));
-      } else if (message.type === "deck:steps") {
-        stepsBySlide.current.set(message.index, message.totalSteps);
-        if (message.index === indexRef.current) {
-          setTotalSteps(message.totalSteps);
-          setStep((previous) => Math.min(previous, message.totalSteps));
-        }
-      } else if (message.type === "deck:error") {
-        setError(message.message);
-      }
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
   }, []);
 
   // Load the deck once the frame is listening.
@@ -148,21 +119,21 @@ export function DeckPresenter({
   );
 
   const goToSlide = useCallback(
-    (next: number, startStep: number) => {
-      setFading(true);
-      window.setTimeout(() => {
-        setIndex(next);
-        setStep(startStep);
-        setTotalSteps(stepsBySlide.current.get(next) ?? 0);
-        send({ type: "deck:index", index: next, step: startStep });
-        setFading(false);
-      }, 140);
+    (requested: number, startStep: number) => {
+      // Clamp every jump (digit entry can exceed the deck) so the host
+      // index can never desync from the frame's clamped view. Slide
+      // changes are instant — no transition to schedule.
+      const last = Math.max(slideCountRef.current - 1, 0);
+      const next = Math.min(Math.max(requested, 0), last);
+      setIndex(next);
+      setStep(startStep);
+      setTotalSteps(stepsBySlide.current.get(next) ?? 0);
+      send({ type: "deck:index", index: next, step: startStep });
     },
     [send]
   );
 
   const goNext = useCallback(() => {
-    if (fading) return;
     if (stepRef.current < totalStepsRef.current) {
       advanceStep(stepRef.current + 1);
       return;
@@ -170,10 +141,9 @@ export function DeckPresenter({
     if (indexRef.current < slideCountRef.current - 1) {
       goToSlide(indexRef.current + 1, 0);
     }
-  }, [fading, advanceStep, goToSlide]);
+  }, [advanceStep, goToSlide]);
 
   const goPrev = useCallback(() => {
-    if (fading) return;
     if (stepRef.current > 0) {
       advanceStep(stepRef.current - 1);
       return;
@@ -185,14 +155,32 @@ export function DeckPresenter({
         stepsBySlide.current.get(indexRef.current - 1) ?? 0
       );
     }
-  }, [fading, advanceStep, goToSlide]);
+  }, [advanceStep, goToSlide]);
 
   const toggleFullscreen = useCallback(async () => {
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+        webkitExitFullscreen?: () => Promise<void> | void;
+      };
+      if (document.fullscreenElement || doc.webkitFullscreenElement) {
+        if (typeof document.exitFullscreen === "function") {
+          await document.exitFullscreen();
+        } else {
+          await doc.webkitExitFullscreen?.();
+        }
       } else {
-        await rootRef.current?.requestFullscreen();
+        const el = rootRef.current;
+        if (!el) return;
+        if (typeof el.requestFullscreen === "function") {
+          await el.requestFullscreen();
+        } else {
+          // Safari < 16.4 exposes only the webkit-prefixed API.
+          const legacy = el as HTMLElement & {
+            webkitRequestFullscreen?: () => Promise<void> | void;
+          };
+          await legacy.webkitRequestFullscreen?.();
+        }
       }
     } catch {
       // Fullscreen can be denied (permissions) — presentation still works.
@@ -201,19 +189,95 @@ export function DeckPresenter({
 
   useEffect(() => {
     function onFullscreenChange() {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+      };
+      setIsFullscreen(
+        Boolean(document.fullscreenElement || doc.webkitFullscreenElement)
+      );
     }
     document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () =>
+    document.addEventListener(
+      "webkitfullscreenchange",
+      onFullscreenChange as EventListener
+    );
+    return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        onFullscreenChange as EventListener
+      );
+    };
   }, []);
+
+  // One key handler for both input paths: the host window's keydown and
+  // keys forwarded from the runtime frame when it holds focus. Returns
+  // whether the default action should be prevented.
+  const jumpRef = useRef<{ buffer: string; timer: ReturnType<typeof setTimeout> | null }>({
+    buffer: "",
+    timer: null,
+  });
+
+  const handlePresenterKey = useCallback(
+    (key: string): boolean => {
+      const lower = key.toLowerCase();
+
+      if (key === "ArrowRight" || key === "PageDown" || key === " ") {
+        goNext();
+        return true;
+      }
+      if (key === "ArrowLeft" || key === "PageUp") {
+        goPrev();
+        return true;
+      }
+      if (lower === "n") {
+        goNext();
+        return true;
+      }
+      if (lower === "p") {
+        goPrev();
+        return true;
+      }
+      if (key === "Home") {
+        goToSlide(0, 0);
+        return true;
+      }
+      if (key === "End") {
+        const last = Math.max(slideCountRef.current - 1, 0);
+        goToSlide(last, stepsBySlide.current.get(last) ?? 0);
+        return true;
+      }
+      if (lower === "f") {
+        void toggleFullscreen();
+        return true;
+      }
+      if (key === "Escape") {
+        jumpRef.current.buffer = "";
+        return false;
+      }
+      if (/^[0-9]$/.test(key)) {
+        jumpRef.current.buffer += key;
+        if (jumpRef.current.timer) clearTimeout(jumpRef.current.timer);
+        jumpRef.current.timer = setTimeout(() => {
+          jumpRef.current.buffer = "";
+        }, 1500);
+        return false;
+      }
+      if (key === "Enter" && jumpRef.current.buffer) {
+        const number = Number.parseInt(jumpRef.current.buffer, 10);
+        jumpRef.current.buffer = "";
+        if (Number.isFinite(number) && number > 0) goToSlide(number - 1, 0);
+        return true;
+      }
+      return false;
+    },
+    [goNext, goPrev, goToSlide, toggleFullscreen]
+  );
 
   // Keyboard map: arrows/Space/N/P, Home/End, F, digits + Enter.
   useEffect(() => {
-    let jumpBuffer = "";
-    let jumpTimer: ReturnType<typeof setTimeout> | null = null;
-
     function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       if (
         target &&
@@ -223,54 +287,52 @@ export function DeckPresenter({
       ) {
         return;
       }
-
-      const key = event.key;
-      const lower = key.toLowerCase();
-
-      if (key === "ArrowRight" || key === "PageDown" || key === " ") {
-        event.preventDefault();
-        goNext();
-      } else if (key === "ArrowLeft" || key === "PageUp") {
-        event.preventDefault();
-        goPrev();
-      } else if (lower === "n") {
-        event.preventDefault();
-        goNext();
-      } else if (lower === "p") {
-        event.preventDefault();
-        goPrev();
-      } else if (key === "Home") {
-        event.preventDefault();
-        goToSlide(0, 0);
-      } else if (key === "End") {
-        event.preventDefault();
-        const last = Math.max(slideCountRef.current - 1, 0);
-        goToSlide(last, stepsBySlide.current.get(last) ?? 0);
-      } else if (lower === "f") {
-        event.preventDefault();
-        void toggleFullscreen();
-      } else if (key === "Escape") {
-        jumpBuffer = "";
-      } else if (/^[0-9]$/.test(key)) {
-        jumpBuffer += key;
-        if (jumpTimer) clearTimeout(jumpTimer);
-        jumpTimer = setTimeout(() => {
-          jumpBuffer = "";
-        }, 1500);
-      } else if (key === "Enter" && jumpBuffer) {
-        event.preventDefault();
-        const number = Number.parseInt(jumpBuffer, 10);
-        jumpBuffer = "";
-        if (Number.isFinite(number) && number > 0) goToSlide(number - 1, 0);
-      }
+      if (handlePresenterKey(event.key)) event.preventDefault();
     }
 
     window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handlePresenterKey]);
+
+  // Clear any pending digit-jump timer on unmount.
+  useEffect(() => {
+    const jump = jumpRef.current;
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      if (jumpTimer) clearTimeout(jumpTimer);
+      if (jump.timer) clearTimeout(jump.timer);
     };
-  }, [goNext, goPrev, goToSlide, toggleFullscreen]);
+  }, []);
+
+  // Runtime handshake + status.
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.source !== frameRef.current?.contentWindow) return;
+      const message = event.data as RuntimeOutMessage | null;
+      if (!message || typeof message !== "object") return;
+
+      if (message.type === "deck:frame-ready") {
+        setReady(true);
+      } else if (message.type === "deck:ready") {
+        setError(null);
+        setSlideCount(message.slideCount);
+        setProgressConfig(message.progress ?? DEFAULT_DECK_PROGRESS);
+        setIndex((previous) => Math.min(previous, message.slideCount - 1));
+      } else if (message.type === "deck:steps") {
+        stepsBySlide.current.set(message.index, message.totalSteps);
+        if (message.index === indexRef.current) {
+          setTotalSteps(message.totalSteps);
+          setStep((previous) => Math.min(previous, message.totalSteps));
+        }
+      } else if (message.type === "deck:keydown") {
+        // Key pressed inside the frame (it owns focus) — route it through
+        // the same handler the host window uses.
+        handlePresenterKey(message.key);
+      } else if (message.type === "deck:error") {
+        setError(message.message);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [handlePresenterKey]);
 
   const progress =
     slideCount > 0
@@ -286,7 +348,11 @@ export function DeckPresenter({
 
   const progressBar = progressConfig.show ? (
     <div
-      aria-hidden
+      role="progressbar"
+      aria-label="Presentation progress"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress)}
       data-slot="deck-progress"
       data-position={progressConfig.position}
       className="w-full shrink-0"
@@ -315,10 +381,7 @@ export function DeckPresenter({
           src="/runtime"
           title="Deck presentation"
           sandbox="allow-scripts allow-same-origin"
-          className={cn(
-            "h-full w-full border-0 transition-opacity duration-150",
-            fading ? "opacity-0" : "opacity-100"
-          )}
+          className="h-full w-full border-0"
         />
         {error ? (
           <div className="absolute inset-x-0 bottom-0 p-4">

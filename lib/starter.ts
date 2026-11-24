@@ -7,26 +7,20 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { deckFiles, decks } from "@/db/schema";
+import {
+  applyDeckTitle,
+  DECK_CONFIG_PATH,
+  STARTER_TITLE,
+  STYLES_PATH,
+} from "@/lib/deck-contract";
+
+export { applyDeckTitle, DECK_CONFIG_PATH, STARTER_TITLE, STYLES_PATH };
 
 /**
  * The starter template — a real folder of deck-contract files under
  * `templates/starter/`. "New deck" copies it into the database, so every
  * account begins with a working, editable deck.
  */
-
-export const STARTER_TITLE = "My presentation";
-export const DECK_CONFIG_PATH = "deck/deck.config.ts";
-
-/** Writes a new title into a deck config source without reformatting it. */
-export function applyDeckTitle(content: string, title: string): string {
-  return content.replace(
-    /\btitle:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/,
-    () => `title: ${JSON.stringify(title)}`
-  );
-}
-
-/** The deck's single styles file (part of the deck contract). */
-export const STYLES_PATH = "deck/styles.css";
 
 const STYLES_TEMPLATE_PATH = path.join(
   process.cwd(),
@@ -41,7 +35,24 @@ const LEGACY_BASE_START = "/* @deck-base:start";
 
 export type StarterFiles = Record<string, string>;
 
-export async function readStarterFiles(): Promise<StarterFiles> {
+/**
+ * Templates only change on deploy, so their disk reads are memoized for
+ * the lifetime of the process in production. In dev they re-read each
+ * time so template edits show up without a restart.
+ */
+function memoize<T>(load: () => Promise<T>): () => Promise<T> {
+  if (process.env.NODE_ENV !== "production") return load;
+  let cached: Promise<T> | null = null;
+  return () => {
+    cached ??= load().catch((error) => {
+      cached = null;
+      throw error;
+    });
+    return cached;
+  };
+}
+
+async function walkStarter(): Promise<StarterFiles> {
   const root = path.join(process.cwd(), "templates", "starter");
   const files: StarterFiles = {};
 
@@ -60,6 +71,8 @@ export async function readStarterFiles(): Promise<StarterFiles> {
   await walk(root, "");
   return files;
 }
+
+export const readStarterFiles = memoize(walkStarter);
 
 /** Creates a new deck owned by `userId`, seeded from the starter template. */
 export async function createDeckFromStarter(
@@ -101,7 +114,7 @@ export async function createDeckFromStarter(
  * extracted verbatim so existing decks can receive exactly the same
  * editable CSS as new decks.
  */
-async function readDeckBaseCss(): Promise<string | null> {
+async function readDeckBaseCssImpl(): Promise<string | null> {
   let css: string;
   try {
     css = await readFile(STYLES_TEMPLATE_PATH, "utf8");
@@ -114,6 +127,8 @@ async function readDeckBaseCss(): Promise<string | null> {
   if (start === -1 || end === -1) return null;
   return css.slice(start, end + BASE_END.length).trim();
 }
+
+const readDeckBaseCss = memoize(readDeckBaseCssImpl);
 
 /**
  * Guarantees a deck has its single styles file — backfills decks created

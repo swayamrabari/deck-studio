@@ -1,126 +1,65 @@
 import "server-only";
 
-import fs from "node:fs";
-import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { drizzle } from "drizzle-orm/sqlite-proxy";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 
 import * as schema from "./schema";
 
 /**
- * v1 storage: SQLite via Node's built-in `node:sqlite` — zero native
- * dependencies. Drizzle's sqlite-proxy adapter provides the fully typed
- * query API over a DatabaseSync connection.
+ * Storage: Postgres (Supabase) via postgres.js.
+ *
+ * Supabase's transaction pooler (port 6543) multiplexes many serverless
+ * instances over shared backend connections and does not support prepared
+ * statements — hence `prepare: false` and a small per-instance pool.
  */
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "pptxgen.db");
-const MIGRATIONS_DIR = path.join(process.cwd(), "drizzle");
-
-/** Values `node:sqlite` can bind directly. */
-type SQLValue = null | number | bigint | string | Uint8Array;
-
-function toSqliteParam(value: unknown): SQLValue {
-  if (value === undefined || value === null) return null;
-  if (typeof value === "boolean") return value ? 1 : 0;
-  if (
-    typeof value === "number" ||
-    typeof value === "bigint" ||
-    typeof value === "string"
-  ) {
-    return value;
-  }
-  if (value instanceof Uint8Array) return value;
-  return String(value);
-}
-
-/** Applies pending drizzle-kit SQL migrations in filename order. */
-function applyMigrations(sqlite: DatabaseSync): void {
-  sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS __migrations (
-      name TEXT PRIMARY KEY,
-      applied_at INTEGER NOT NULL
-    )
-  `);
-
-  const applied = new Set(
-    (
-      sqlite.prepare("SELECT name FROM __migrations").all() as {
-        name: string;
-      }[]
-    ).map((row) => row.name)
-  );
-
-  const files = fs
-    .readdirSync(MIGRATIONS_DIR)
-    .filter((file) => file.endsWith(".sql"))
-    .sort();
-
-  for (const file of files) {
-    if (applied.has(file)) continue;
-    const sqlText = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
-
-    sqlite.exec("BEGIN");
-    try {
-      sqlite.exec(sqlText);
-      sqlite
-        .prepare("INSERT INTO __migrations (name, applied_at) VALUES (?, ?)")
-        .run(file, Date.now());
-      sqlite.exec("COMMIT");
-    } catch (error) {
-      sqlite.exec("ROLLBACK");
-      throw error;
+/** Ensures TLS without requiring the URL to carry it (Supabase enforces SSL). */
+function withRequiredSsl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.searchParams.has("sslmode")) return url;
+    if (["localhost", "127.0.0.1", "::1"].includes(parsed.hostname)) {
+      return url;
     }
+    parsed.searchParams.set("sslmode", "require");
+    return parsed.toString();
+  } catch {
+    return url;
   }
 }
 
 function createDb() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is not set. Add the Supabase connection string to .env.local (see README — Deploy)."
+    );
+  }
 
-  const sqlite = new DatabaseSync(DB_PATH);
-  sqlite.exec("PRAGMA foreign_keys = ON");
-  applyMigrations(sqlite);
+  const client = postgres(withRequiredSsl(url), {
+    prepare: false,
+    max: 3,
+    idle_timeout: 20,
+    connect_timeout: 10,
+  });
 
-  const statements = new Map<string, ReturnType<typeof sqlite.prepare>>();
-  const prepare = (sqlText: string) => {
-    let statement = statements.get(sqlText);
-    if (!statement) {
-      statement = sqlite.prepare(sqlText);
-      statements.set(sqlText, statement);
-    }
-    return statement;
-  };
-
-  return drizzle(
-    async (sqlText, params, method) => {
-      const statement = prepare(sqlText);
-      const bound: SQLValue[] = params.map(toSqliteParam);
-
-      // drizzle's sqlite-proxy maps rows BY COLUMN POSITION
-      // (row[columnIndex]), so rows must be value tuples — not objects.
-      // Object.values is safe here: every query selects uniquely-named
-      // columns, and node:sqlite keys rows in SELECT order.
-      if (method === "run") {
-        statement.run(...bound);
-        return { rows: [] };
-      }
-      if (method === "get") {
-        const row = statement.get(...bound);
-        // NOTE: nothing in the app uses builder `.get()` queries (drizzle
-        // maps an empty array here to an all-undefined row). Revisit before
-        // ever relying on `.get()`.
-        return row === undefined ? { rows: [] } : { rows: Object.values(row) };
-      }
-      const rows = statement.all(...bound) as Record<string, unknown>[];
-      return { rows: rows.map((row) => Object.values(row)) };
-    },
-    { schema }
-  );
+  return drizzle(client, { schema });
 }
 
 type AppDatabase = ReturnType<typeof createDb>;
 
-// Lazy: the connection opens on the first query, never during build-time
+/**
+ * True when the error (or drizzle's wrapped cause chain) is Postgres'
+ * UNIQUE-constraint violation. drizzle rethrows driver errors with the
+ * original in `cause`, so the chain must be walked.
+ */
+export function isUniqueViolation(error: unknown, depth = 0): boolean {
+  if (depth > 3 || typeof error !== "object" || error === null) return false;
+  if ((error as { code?: unknown }).code === "23505") return true;
+  return isUniqueViolation((error as { cause?: unknown }).cause, depth + 1);
+}
+
+// Lazy: the client opens on the first query, never during build-time
 // page-data collection. Cached across dev HMR reloads.
 const globalForDb = globalThis as unknown as { __pptxgenDb?: AppDatabase };
 
