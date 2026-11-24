@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AlignLeftIcon,
@@ -41,22 +41,69 @@ import { DeckPreview } from "./deck-preview";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileTree } from "./file-tree";
 
-const NEW_SLIDE_CONTENT = `import { Statement } from "@/components/slides";
+function slideSlug(name: string) {
+  return (
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48) || "new-slide"
+  );
+}
+
+function nextSlideNumber(files: Record<string, string>) {
+  const usedNumbers = Object.keys(files)
+    .map((path) => /^deck\/(\d+)-/.exec(path)?.[1])
+    .filter((n): n is string => Boolean(n))
+    .map(Number);
+  const next = (usedNumbers.length > 0 ? Math.max(...usedNumbers) : 0) + 1;
+  return String(next).padStart(2, "0");
+}
+
+/** Renames the last path segment; slide folders keep their number prefix. */
+function renamedFolderPath(path: string, value: string) {
+  const parent = path.split("/").slice(0, -1).join("/");
+  let name = slideSlug(value);
+  const number = /^deck\/(\d+)-/.exec(path)?.[1];
+  if (number && !/^\d+-/.test(name)) name = `${number}-${name}`;
+  return `${parent}/${name}`;
+}
+
+function newSlideContent(title: string) {
+  return `import { SparklesIcon } from "lucide-react";
 import type { SlideMeta } from "@/lib/types";
 
 export const meta: SlideMeta = {
-  title: "New slide",
+  title: ${JSON.stringify(title)},
   notes: "",
 };
 
 export default function NewSlide() {
-  return <Statement>New slide — make it yours.</Statement>;
+  return (
+    <div className="flex h-full flex-col justify-center">
+      <div className="flex size-14 items-center justify-center rounded-2xl border border-deck-surface bg-deck-surface/40 text-deck-accent">
+        <SparklesIcon className="size-6" />
+      </div>
+      <p className="mt-8 font-mono text-sm uppercase tracking-[0.3em] text-deck-muted">
+        New slide
+      </p>
+      <h2 className="mt-3 font-display text-7xl font-medium tracking-tight text-deck-fg">
+        {${JSON.stringify(title)}}
+      </h2>
+      <p className="mt-6 max-w-2xl font-body text-xl leading-relaxed text-deck-muted">
+        Replace this with your story. Everything here is a React component.
+      </p>
+    </div>
+  );
 }
 `;
+}
 
 type WorkspaceDialog =
+  | { kind: "new-slide" }
   | { kind: "new-file" }
-  | { kind: "rename"; path: string }
+  | { kind: "rename"; path: string; folder: boolean }
   | { kind: "delete"; path: string; folder: boolean }
   | { kind: "media"; name: string }
   | null;
@@ -257,21 +304,20 @@ export function DeckWorkspace({
     }
   }
 
-  async function createSlide() {
-    const usedNumbers = Object.keys(files)
-      .map((path) => /^deck\/(\d+)-/.exec(path)?.[1])
-      .filter((n): n is string => Boolean(n))
-      .map(Number);
-    const next = (usedNumbers.length > 0 ? Math.max(...usedNumbers) : 0) + 1;
-    const number = String(next).padStart(2, "0");
+  async function createSlide(name: string) {
+    const title = name.trim() || "Untitled slide";
+    const number = nextSlideNumber(files);
+    const slug = slideSlug(title);
 
-    let path = `deck/${number}-new-slide/page.tsx`;
+    let path = `deck/${number}-${slug}/page.tsx`;
     let attempt = 2;
     while (files[path]) {
-      path = `deck/${number}-new-slide-${attempt}/page.tsx`;
+      path = `deck/${number}-${slug}-${attempt}/page.tsx`;
       attempt++;
     }
-    await createFile(path, NEW_SLIDE_CONTENT);
+    if (await createFile(path, newSlideContent(title))) {
+      setDialog(null);
+    }
   }
 
   async function renamePath(from: string, to: string) {
@@ -370,6 +416,21 @@ export function DeckWorkspace({
       ).length
     : 0;
 
+  const nextSlide = nextSlideNumber(files);
+  const newSlideFolder = draftValue.trim()
+    ? `${nextSlide}-${slideSlug(draftValue)}`
+    : `${nextSlide}-…`;
+
+  const renameParent =
+    dialog?.kind === "rename"
+      ? dialog.path.split("/").slice(0, -1).join("/")
+      : "";
+  const renameFolderPreview = dialog?.kind === "rename" && dialog.folder
+    ? draftValue.trim()
+      ? renamedFolderPath(dialog.path, draftValue)
+      : `${renameParent}/…`
+    : null;
+
   return (
     <div className="flex h-dvh flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-border px-3">
@@ -436,7 +497,12 @@ export function DeckWorkspace({
                 <PlusIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-60">
-                <DropdownMenuItem onClick={createSlide}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDraftValue("");
+                    setDialog({ kind: "new-slide" });
+                  }}
+                >
                   <PresentationIcon />
                   New slide
                 </DropdownMenuItem>
@@ -464,9 +530,9 @@ export function DeckWorkspace({
                 paths={Object.keys(files)}
                 activePath={activePath}
                 onOpen={openFile}
-                onRename={(path) => {
-                  setDraftValue(path);
-                  setDialog({ kind: "rename", path });
+                onRename={(path, folder) => {
+                  setDraftValue(folder ? baseName(path) : path);
+                  setDialog({ kind: "rename", path, folder });
                 }}
                 onDelete={(path, folder) => setDialog({ kind: "delete", path, folder })}
                 media={mediaList}
@@ -604,6 +670,58 @@ export function DeckWorkspace({
         }}
       />
 
+      <Dialog
+        open={dialog?.kind === "new-slide"}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New slide</DialogTitle>
+            <DialogDescription>
+              Name the slide. The folder number is assigned automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="slide-name">Slide name</Label>
+            <Input
+              id="slide-name"
+              value={draftValue}
+              autoFocus
+              placeholder="Product roadmap"
+              className="text-sm"
+              onChange={(event) => setDraftValue(event.target.value)}
+              onFocus={(event) => event.target.select()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !pending) {
+                  event.preventDefault();
+                  void createSlide(draftValue);
+                }
+              }}
+            />
+            <p className="truncate font-ui-mono text-[10px] text-muted-foreground">
+              deck/{newSlideFolder}/page.tsx
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialog(null)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void createSlide(draftValue)}
+              disabled={pending}
+            >
+              {pending ? "Creating…" : "Create slide"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <PathDialog
         open={dialog?.kind === "new-file"}
         title="New file"
@@ -625,8 +743,26 @@ export function DeckWorkspace({
 
       <PathDialog
         open={dialog?.kind === "rename"}
-        title="Rename file"
-        description="Renames the file in place. Folders not shown in the tree can be renamed by path."
+        title={
+          dialog?.kind === "rename" && dialog.folder
+            ? "Rename folder"
+            : "Rename file"
+        }
+        description={
+          dialog?.kind === "rename" && dialog.folder
+            ? "Renames the folder and every file inside it. Slide folders keep their number prefix."
+            : "Renames the file in place."
+        }
+        label={
+          dialog?.kind === "rename" && dialog.folder ? "Folder name" : "Path"
+        }
+        preview={
+          renameFolderPreview ? (
+            <p className="truncate font-ui-mono text-[10px] text-muted-foreground">
+              {renameFolderPreview}
+            </p>
+          ) : null
+        }
         draft={draftValue}
         onDraftChange={setDraftValue}
         confirmLabel="Rename"
@@ -634,7 +770,14 @@ export function DeckWorkspace({
         onCancel={() => setDialog(null)}
         onConfirm={() => {
           if (dialog?.kind === "rename") {
-            void renamePath(dialog.path, draftValue.trim());
+            if (dialog.folder && !draftValue.trim()) {
+              setError("Folder name is required.");
+              return;
+            }
+            const to = dialog.folder
+              ? renamedFolderPath(dialog.path, draftValue)
+              : draftValue.trim();
+            void renamePath(dialog.path, to);
           }
         }}
       />
@@ -728,6 +871,8 @@ function PathDialog({
   open,
   title,
   description,
+  label = "Path",
+  preview,
   draft,
   onDraftChange,
   confirmLabel,
@@ -738,6 +883,8 @@ function PathDialog({
   open: boolean;
   title: string;
   description: string;
+  label?: string;
+  preview?: ReactNode;
   draft: string;
   onDraftChange: (value: string) => void;
   confirmLabel: string;
@@ -758,7 +905,7 @@ function PathDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="deck-path">Path</Label>
+          <Label htmlFor="deck-path">{label}</Label>
           <Input
             id="deck-path"
             value={draft}
@@ -774,6 +921,7 @@ function PathDialog({
               }
             }}
           />
+          {preview}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={pending}>

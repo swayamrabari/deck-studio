@@ -92,7 +92,7 @@ export function FileTree({
   paths: string[];
   activePath: string | null;
   onOpen: (path: string) => void;
-  onRename: (path: string) => void;
+  onRename: (path: string, folder: boolean) => void;
   onDelete: (path: string, recursive: boolean) => void;
   media?: Array<{ name: string }>;
   onOpenMedia?: (name: string) => void;
@@ -115,6 +115,7 @@ export function FileTree({
 
       if (node.kind === "folder") {
         const isCollapsed = collapsed.has(node.path);
+        const isSlideFolder = /^deck\/\d+-[^/]+$/.test(node.path);
         return (
           <div key={node.path}>
             <div
@@ -142,17 +143,32 @@ export function FileTree({
                 <FolderOpenIcon className="size-3.5 shrink-0" />
               )}
               <span className="truncate">{node.name}</span>
-              <button
-                type="button"
-                aria-label={`Delete folder ${node.path}`}
-                className="ml-auto cursor-pointer rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover/row:opacity-100 focus-visible:opacity-100"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onDelete(node.path, true);
-                }}
-              >
-                <Trash2Icon className="size-3" />
-              </button>
+              <span className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
+                {isSlideFolder ? (
+                  <button
+                    type="button"
+                    aria-label={`Rename folder ${node.path}`}
+                    className="cursor-pointer rounded-sm p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRename(node.path, true);
+                    }}
+                  >
+                    <PencilIcon className="size-3" />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  aria-label={`Delete folder ${node.path}`}
+                  className="cursor-pointer rounded-sm p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(node.path, true);
+                  }}
+                >
+                  <Trash2Icon className="size-3" />
+                </button>
+              </span>
             </div>
             {!isCollapsed && renderNodes(node.children, depth + 1)}
           </div>
@@ -192,7 +208,7 @@ export function FileTree({
               className="cursor-pointer rounded-sm p-0.5 hover:bg-background hover:text-foreground"
               onClick={(event) => {
                 event.stopPropagation();
-                onRename(node.path);
+                onRename(node.path, false);
               }}
             >
               <PencilIcon className="size-3" />
