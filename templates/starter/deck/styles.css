@@ -1,13 +1,21 @@
 /*
- * deck/styles.css — plain CSS for this deck.
+ * deck/styles.css — your brand, in one file.
  *
  * Classes defined here are available in every slide (they are injected
  * into the preview/presenter frame). Use this next to Tailwind for
  * anything reusable that utilities don't express cleanly.
  *
- * Deck theme variables are usable here, e.g.:
- *   color: var(--color-deck-muted);
- *   font-family: var(--font-display);
+ * Brand customization: override the deck tokens below and every slide
+ * follows — colors, surfaces, accent. These win over deck.config's
+ * theme because this file loads after it.
+ *
+ *   :root {
+ *     --color-deck-bg: #0a0a0a;
+ *     --color-deck-surface: #161616;
+ *     --color-deck-fg: #f5f5f5;
+ *     --color-deck-muted: #9a9a9a;
+ *     --color-deck-accent: #ff5c00;
+ *   }
  */
 
 .eyebrow {

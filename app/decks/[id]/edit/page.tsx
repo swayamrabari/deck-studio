@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { deckFiles, deckMedia } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { getOwnedDeck } from "@/lib/decks";
+import { ensureDeckStylesFile, STYLES_PATH } from "@/lib/starter";
 
 // Auth-gated: reads the session cookie, so the route blocks on the server.
 export const instant = false;
@@ -30,6 +31,12 @@ export default async function DeckEditPage({
   const initialFiles = Object.fromEntries(
     rows.map((row) => [row.path, row.content])
   );
+
+  // Every deck gets exactly one brand-styles file (backfilled if missing).
+  const seededStyles = await ensureDeckStylesFile(deck.id);
+  if (seededStyles !== null) {
+    initialFiles[STYLES_PATH] = seededStyles;
+  }
 
   const mediaRows = await db
     .select({ name: deckMedia.name, size: deckMedia.size, mime: deckMedia.mime })

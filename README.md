@@ -41,8 +41,9 @@ renders it (transpile → virtual modules → iframe).
 
 `deck/deck.config.ts` drives the runtime: `aspect` (`16:9` → 1280×720,
 `4:3` → 960×720), `theme` (`midnight` | `paper`), `fonts` (`display` /
-`body` / `mono` chosen from the 8-family registry), and `slideNumbers`
-(passed to your `layout.tsx`).
+`body` / `mono` from the 14-family registry — **case-insensitive**, so
+`"sora"`, `"Sora"`, `"fira code"` all work), and `slideNumbers` (passed
+to your `layout.tsx`).
 
 ### Media
 
@@ -59,17 +60,20 @@ import { FitImage, media } from "@/components/slides";
 ### Styles
 
 `deck/styles.css` holds reusable plain-CSS classes, injected into the
-preview/presenter frame. Deck theme variables work there
-(`var(--color-deck-muted)`, `var(--font-display)`, …).
+preview/presenter frame. **Override the deck tokens at `:root` to rebrand
+the whole deck** — user styles load after the theme, so they win:
 
 ```css
-.eyebrow {
-  font-family: var(--font-mono);
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  color: var(--color-deck-muted);
+:root {
+  --color-deck-bg: #0a0a0a;
+  --color-deck-fg: #f5f5f5;
+  --color-deck-accent: #ff5c00;
 }
+.eyebrow { font-family: var(--font-mono); letter-spacing: 0.35em; }
 ```
+
+Every deck has the file (older decks get it backfilled on open), and the
+runtime accepts any top-level `deck/*.css` as well.
 
 ### Formatting
 

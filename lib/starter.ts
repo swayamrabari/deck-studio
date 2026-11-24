@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { deckFiles, decks } from "@/db/schema";
@@ -14,6 +15,9 @@ import { deckFiles, decks } from "@/db/schema";
  */
 
 export const STARTER_TITLE = "Slides as code";
+
+/** The deck's single brand-styles file (part of the deck contract). */
+export const STYLES_PATH = "deck/styles.css";
 
 export type StarterFiles = Record<string, string>;
 
@@ -37,11 +41,9 @@ export async function readStarterFiles(): Promise<StarterFiles> {
   return files;
 }
 
-/** Creates a new deck owned by `userId`, seeded from the starter template. */
-export async function createDeckFromStarter(
+/** Creates a new deck owned by `userId`, seeded from the starter template. */export async function createDeckFromStarter(
   userId: string
-): Promise<{ id: string; title: string }> {
-  const id = randomUUID();
+): Promise<{ id: string; title: string }> {  const id = randomUUID();
   const now = new Date();
 
   await db.insert(decks).values({
@@ -65,4 +67,33 @@ export async function createDeckFromStarter(
   }
 
   return { id, title: STARTER_TITLE };
+}
+
+/**
+ * Guarantees a deck has its single brand-styles file — backfills decks
+ * created before the `styles.css` convention. Returns the seeded content
+ * when it was just created, or null when the file already existed.
+ */
+export async function ensureDeckStylesFile(
+  deckId: string
+): Promise<string | null> {
+  const existing = await db
+    .select({ id: deckFiles.id })
+    .from(deckFiles)
+    .where(and(eq(deckFiles.deckId, deckId), eq(deckFiles.path, STYLES_PATH)))
+    .limit(1);
+  if (existing.length > 0) return null;
+
+  const template = await readStarterFiles();
+  const css = template[STYLES_PATH];
+  if (!css) return null;
+
+  await db.insert(deckFiles).values({
+    id: randomUUID(),
+    deckId,
+    path: STYLES_PATH,
+    content: css,
+    updatedAt: new Date(),
+  });
+  return css;
 }

@@ -39,7 +39,7 @@ local setup. The engine built in Phases 0–2 becomes the platform's core.
 | Editor | **CodeMirror 6**, custom-themed to the studio system (consistency-first); workspace chrome from shadcn (Tabs, Tree); Monaco as a later option |
 | UI kit | **shadcn/ui** (Base UI primitives, `nova` style, neutral base) |
 | Chrome mode | **Always dark studio**, monochrome |
-| Fonts | 8-family registry, config-driven slots (`display/body/mono`) |
+| Fonts | 14-family registry (sans/display/serif/mono), config-driven slots, **case-insensitive names** |
 | Reveal steps | v1 core — `<Appear>` fragments, step-aware navigation |
 | Extras roadmap | Charts, Mermaid, KaTeX, media embeds |
 | Export | **None.** Presenter only |
@@ -74,10 +74,12 @@ Two principles, enforced by architecture:
 
 **Font system**
 
-- `lib/fonts.ts` — the registry: **Geist, Inter, Space Grotesk, Source
-  Serif 4, Playfair Display, Fraunces, JetBrains Mono, Geist Mono** (all
-  next/font, self-hosted; browsers only download applied families). Any
-  Google font or local file = one registry entry.
+- `lib/fonts.ts` — the registry (14 families, all next/font, self-hosted;
+  browsers only download applied families): **Geist, Inter, Manrope,
+  DM Sans, Space Grotesk, Sora, Source Serif 4, Lora, Playfair Display,
+  Fraunces, JetBrains Mono, Fira Code, IBM Plex Mono, Geist Mono**.
+  Any Google font or local file = one registry entry. Names resolve
+  case-insensitively ("sora", "Sora", "SORA", "fira-code").
 - `deck.config.ts → fonts: { display, body, mono }` picks registry keys;
   the root layout maps semantic vars (`--deck-font-*`) onto them.
 - Slides use only semantic utilities: `font-display`, `font-body`,
@@ -239,25 +241,27 @@ import { FitImage, media } from "@/components/slides";
 
 ### Styles
 
-`deck/styles.css` is the deck's plain-CSS file — write reusable classes
-next to Tailwind; the runtime injects it into the preview/presenter frame
-(any other top-level `deck/*.css` is included too). Deck theme variables
-are available inside it (`var(--color-deck-muted)`, `var(--font-display)`,
-…), and the editor gives `.css` files CSS syntax.
+`deck/styles.css` is the deck's single brand-styles file — every deck has
+one (new decks are seeded with it; older decks get it backfilled on first
+open). Write reusable classes next to Tailwind; the runtime injects the
+file into the preview/presenter frame. Deck theme variables are available
+inside it, and overriding them at `:root` **rebrands the whole deck**
+(user styles load after the theme, so they win):
 
 ```css
-/* deck/styles.css */
-.eyebrow {
-  font-family: var(--font-mono);
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  color: var(--color-deck-muted);
+:root {
+  --color-deck-bg: #0a0a0a;
+  --color-deck-surface: #161616;
+  --color-deck-fg: #f5f5f5;
+  --color-deck-muted: #9a9a9a;
+  --color-deck-accent: #ff5c00;
 }
+
+.eyebrow { font-family: var(--font-mono); letter-spacing: 0.35em; }
 ```
 
-```tsx
-<p className="eyebrow">Section label</p>
-```
+(Fonts stay config-driven — see `deck.config.ts` `fonts` slots, which are
+case-insensitive.)
 
 ---
 
@@ -537,6 +541,10 @@ folder operations.
   runtime's `deck:load` message
 - Starter template's layout reads its footer title from
   `deck.config.ts`
+- Registry grew to **14 families** with **case-insensitive** name
+  resolution; `deck/styles.css` is guaranteed per deck (seeded or
+  backfilled) and `:root` overrides there rebrand the deck's colors
+  (fonts stay config-driven); the workspace `+` menu is wider
 - Formatting: Prettier standalone loaded lazily in the workspace —
   **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
   format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors

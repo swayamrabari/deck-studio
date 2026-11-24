@@ -424,7 +424,7 @@ export function DeckWorkspace({
               >
                 <PlusIcon />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent align="start" className="w-60">
                 <DropdownMenuItem onClick={createSlide}>
                   <PresentationIcon />
                   New slide

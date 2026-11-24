@@ -14,7 +14,7 @@ import { SlideCanvas } from "@/components/deck/slide-canvas";
 import { SlideStepProvider } from "@/components/slides";
 import { setMediaBase } from "@/components/slides/media";
 import { DECK_THEMES } from "@/lib/deck-themes";
-import { fontRegistry } from "@/lib/fonts";
+import { fontVar } from "@/lib/fonts";
 import { compileDeck, type CompiledDeck } from "@/lib/runtime-compiler";
 import type {
   RuntimeInMessage,
@@ -27,21 +27,6 @@ import type {
  * browser, renders the deck inside the fixed canvas, and reports status
  * back to the host via postMessage.
  */
-
-// Theme tokens for Tailwind's browser build: deck palette + semantic font
-// slots, so user-written utilities compile inside the frame.
-const THEME_CSS = `
-@theme {
-  --color-deck-bg: #0b0e14;
-  --color-deck-surface: #131826;
-  --color-deck-fg: #e8ecf3;
-  --color-deck-muted: #9aa4b8;
-  --color-deck-accent: #7aa2f7;
-  --font-display: var(--deck-font-display);
-  --font-body: var(--deck-font-body);
-  --font-mono: var(--deck-font-mono);
-}
-`;
 
 class SlideErrorBoundary extends Component<
   { children: ReactNode; onError: (message: string) => void },
@@ -165,26 +150,29 @@ export default function RuntimeFramePage() {
   const canvasWidth = config?.aspect === "4:3" ? 960 : 1280;
   const canvasHeight = 720;
 
-  const themeVars = useMemo<CSSProperties>(() => {
+  const themeCss = useMemo(() => {
     const theme = DECK_THEMES[config?.theme ?? "midnight"] ?? DECK_THEMES.midnight;
-    const registry = fontRegistry as Record<string, { varName: string }>;
-    const font = (key: string | undefined, fallback: string) =>
-      `var(${key && registry[key] ? registry[key].varName : fallback})`;
-    const display = font(config?.fonts.display, "--font-geist-sans");
-    const body = font(config?.fonts.body, "--font-geist-sans");
-    const mono = font(config?.fonts.mono, "--font-geist-mono");
+    // Colors are declared at :root — BEFORE the deck's own stylesheet, so
+    // `deck/styles.css` can override any of them for brand customization.
+    return `:root {
+  --color-deck-bg: ${theme.bg};
+  --color-deck-surface: ${theme.surface};
+  --color-deck-fg: ${theme.fg};
+  --color-deck-muted: ${theme.muted};
+  --color-deck-accent: ${theme.accent};
+}`;
+  }, [config]);
+
+  // Fonts must be inline on the frame root: the engine's own html element
+  // sets these vars inline, so a :root stylesheet rule would lose.
+  const fontVars = useMemo<CSSProperties>(() => {
+    const display = fontVar(config?.fonts.display, "--font-geist-sans");
+    const body = fontVar(config?.fonts.body, "--font-geist-sans");
+    const mono = fontVar(config?.fonts.mono, "--font-geist-mono");
     return {
-      "--color-deck-bg": theme.bg,
-      "--color-deck-surface": theme.surface,
-      "--color-deck-fg": theme.fg,
-      "--color-deck-muted": theme.muted,
-      "--color-deck-accent": theme.accent,
-      // Semantic deck slots…
       "--deck-font-display": display,
       "--deck-font-body": body,
       "--deck-font-mono": mono,
-      // …and the direct utility vars (Tailwind's browser build resolves its
-      // intermediate `--font-*` vars at :root, so override them here too).
       "--font-display": display,
       "--font-body": body,
       "--font-mono": mono,
@@ -192,8 +180,8 @@ export default function RuntimeFramePage() {
   }, [config]);
 
   return (
-    <div className="relative h-dvh w-full" style={themeVars}>
-      <style type="text/tailwindcss">{THEME_CSS}</style>
+    <div className="relative h-dvh w-full" style={fontVars}>
+      <style data-deck-theme>{themeCss}</style>
       {deck?.styles ? (
         <style data-deck-styles>{deck.styles}</style>
       ) : null}
