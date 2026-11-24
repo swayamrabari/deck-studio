@@ -1,11 +1,16 @@
 /*
- * Runtime-only root CSS.
+ * Runtime-only root CSS — structural frame only.
  *
- * This file belongs to the deck frame — it is loaded only by the
- * `(runtime)` root layout and never imports the app's `globals.css`,
- * studio palette, or shadcn tokens. Root elements use these stable
- * classes instead of app utilities, so the deck document is
- * self-contained.
+ * This file belongs to the deck frame and is loaded only by the
+ * `(runtime)` root layout. It never imports the app's `globals.css`,
+ * studio palette, or shadcn tokens.
+ *
+ * No visual defaults live here: background, color, border, type, and
+ * layout are owned by the deck's own `deck/styles.css` and the classes
+ * written in the deck. The stable hooks a deck can target are:
+ *   .deck-frame          the viewport-sized frame
+ *   .deck-canvas         the measured canvas box
+ *   .deck-canvas-stage   the scaled logical slide
  *
  * The base reset lives inside `@layer base` on purpose: Tailwind's
  * browser build emits deck utilities in `@layer utilities`, which must
@@ -21,32 +26,13 @@
 
   body {
     overflow: hidden;
+    /* Neutral letterbox behind the slide. A deck can override `body`
+       from `deck/styles.css` if it wants a different surround. */
     background: #000;
   }
 }
 
-/* Default deck tokens. The frame overrides these from deck.config.ts;
-   keeping defaults here means the root styling is real CSS even before
-   the first deck message arrives. */
-:root {
-  --color-deck-bg: #0b0e14;
-  --color-deck-surface: #131826;
-  --color-deck-fg: #e8ecf3;
-  --color-deck-muted: #9aa4b8;
-  --color-deck-accent: #7aa2f7;
-
-  /* A deck-level hairline color for utilities like `border-border`. */
-  --color-border: color-mix(in oklab, var(--color-deck-fg) 12%, transparent);
-
-  --deck-font-display: var(--font-geist-sans);
-  --deck-font-body: var(--font-geist-sans);
-  --deck-font-mono: var(--font-geist-mono);
-  --font-display: var(--deck-font-display);
-  --font-body: var(--deck-font-body);
-  --font-mono: var(--deck-font-mono);
-}
-
-/* The frame root. Plain CSS — no app or Tailwind class dependency. */
+/* Structural frame roots — no colors, borders, padding, or type. */
 .deck-frame {
   position: relative;
   width: 100%;
@@ -57,12 +43,9 @@
 .deck-slide-fallback {
   width: 100%;
   height: 100%;
-  padding: 5rem;
-  background: var(--color-deck-bg);
-  color: var(--color-deck-fg);
 }
 
-/* Runtime error panel. */
+/* Runtime error panel (frame infrastructure, not deck content). */
 .deck-error {
   position: absolute;
   right: 0;

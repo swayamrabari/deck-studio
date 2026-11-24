@@ -7,7 +7,4 @@
 
 .stage {
   overflow: hidden;
-  border: 2px solid var(--color-border);
-  background-color: var(--color-deck-bg);
-  color: var(--color-deck-fg);
 }

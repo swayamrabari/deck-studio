@@ -568,15 +568,17 @@ folder operations.
   (`--background` absent) while app pages keep them, and deck brand
   overrides still win inside the frame
 - **Runtime root styles live in CSS**: `app/(runtime)/runtime.css` owns
-  the frame root, fallback, error panel, default deck tokens, and reset
-  (inside `@layer base`, so browser-Tailwind utilities win). The canvas
-  root moved to `components/deck/slide-canvas.module.css`; neither
-  depends on app utilities or shadcn tokens. Fixed the Turbopack CSS rule
-  so `.module.css` files are scoped by Next instead of being treated as
-  global Tailwind inputs. Verified: the frame's linked root CSS has no
-  `--background`/`--card` tokens, `deck-frame`/`deck-error`/canvas module
-  classes resolve, the 2px canvas frame uses the deck border token, and
-  `border-2`/`mt-10` utilities now win over the layered reset
+  only the structural frame (root, canvas box, fallback shell, error
+  panel, layered reset). It paints **nothing** for the deck: no
+  background, color, border, or type. The canvas root uses
+  `components/deck/slide-canvas.module.css` for structure and exposes
+  stable hooks (`.deck-frame`, `.deck-canvas`, `.deck-canvas-stage`), so
+  `deck/styles.css` can override or paint any of them. Fixed the
+  Turbopack CSS rule so `.module.css` files are scoped by Next instead of
+  being treated as global Tailwind inputs. Verified: the frame's linked
+  root CSS has no app tokens, the stage computes to transparent with no
+  border/color defaults, and a deck-level `.deck-canvas-stage` rule takes
+  full control of background, color, and border
 - Formatting: Prettier standalone loaded lazily in the workspace —
   **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
   format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors

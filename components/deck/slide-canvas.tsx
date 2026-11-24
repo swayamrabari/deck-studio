@@ -54,7 +54,7 @@ export function SlideCanvas({
     <div
       ref={containerRef}
       data-slot="slide-canvas"
-      className={`${styles.canvas} ${className ?? ""}`}
+      className={`${styles.canvas} deck-canvas ${className ?? ""}`}
     >
       <div
         data-slot="slide-canvas-inner"
@@ -67,7 +67,7 @@ export function SlideCanvas({
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}
-        className={styles.stage}
+        className={`${styles.stage} deck-canvas-stage`}
       >
         {children}
       </div>

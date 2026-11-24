@@ -1,9 +1,24 @@
 /*
- * deck/styles.css — your brand, in one file.
+ * deck/styles.css — your deck's styles, in one file.
  *
- * Classes defined here are available in every slide (they are injected
- * into the preview/presenter frame). Use this next to Tailwind for
- * anything reusable that utilities don't express cleanly.
+ * This is the deck's only visual stylesheet. The runtime contributes no
+ * background, color, border, or typography of its own: paint the slide
+ * here or with the classes you write in the deck.
+ *
+ * Classes defined here are injected into the preview/presenter frame
+ * after the deck config tokens. They are available in every slide.
+ *
+ * Stable frame hooks:
+ *   .deck-frame          the viewport-sized frame
+ *   .deck-canvas         the measured canvas box
+ *   .deck-canvas-stage   the scaled logical slide
+ *
+ * For example — a custom stage background:
+ *
+ *   .deck-canvas-stage {
+ *     background: var(--color-deck-bg);
+ *     color: var(--color-deck-fg);
+ *   }
  *
  * Brand customization: override the deck tokens below and every slide
  * follows — colors, surfaces, accent. These win over deck.config's

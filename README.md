@@ -38,11 +38,11 @@ shows it as a file tree and a sandboxed in-browser runtime compiles and
 renders it (transpile → virtual modules → iframe).
 
 **Full CSS isolation:** the runtime runs in its own root layout with
-**none of the app's CSS** — deck Tailwind is compiled inside the frame
-and `styles.css` is injected there, so app chrome and deck styles share
-no stylesheet and can never overlap. The runtime's own root classes live
-in `app/(runtime)/runtime.css`, and the canvas root uses a CSS Module —
-no app utilities or shadcn tokens are involved.
+**none of the app's CSS**. The frame contributes only structure — no
+background, color, border, or type — and deck Tailwind is compiled
+inside the frame. `deck/styles.css` paints the deck and can target the
+stable hooks `.deck-frame`, `.deck-canvas`, and `.deck-canvas-stage`, so
+app chrome and deck styles share no stylesheet and cannot overlap.
 
 ### Config
 
@@ -80,9 +80,11 @@ Decks that don't import icons never download the library. Icons inherit
 
 ### Styles
 
-`deck/styles.css` holds reusable plain-CSS classes, injected into the
-preview/presenter frame. **Override the deck tokens at `:root` to rebrand
-the whole deck** — user styles load after the theme, so they win:
+`deck/styles.css` is the deck's visual source of truth, injected into the
+preview/presenter frame. The runtime paints no background, color, border,
+or type of its own — the deck owns all of it. **Override the deck tokens
+at `:root` to rebrand the whole deck**; user styles load after the theme,
+so they win:
 
 ```css
 :root {
@@ -90,11 +92,19 @@ the whole deck** — user styles load after the theme, so they win:
   --color-deck-fg: #f5f5f5;
   --color-deck-accent: #ff5c00;
 }
+
+.deck-canvas-stage {
+  background: var(--color-deck-bg);
+  color: var(--color-deck-fg);
+}
+
 .eyebrow { font-family: var(--font-mono); letter-spacing: 0.35em; }
 ```
 
-Every deck has the file (older decks get it backfilled on open), and the
-runtime accepts any top-level `deck/*.css` as well.
+Stable frame hooks: `.deck-frame` (viewport), `.deck-canvas` (measured
+box), `.deck-canvas-stage` (the scaled logical slide). Every deck has
+`deck/styles.css` (older decks get it backfilled on open), and the runtime
+accepts any top-level `deck/*.css` as well.
 
 ### Formatting
 
