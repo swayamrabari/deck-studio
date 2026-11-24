@@ -1,16 +1,28 @@
 "use client";
 
-import { useMemo } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import {
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  type Ref,
+} from "react";
+import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { createTheme } from "@uiw/codemirror-themes";
+import { EditorView, keymap } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import { javascript } from "@codemirror/lang-javascript";
 import { css } from "@codemirror/lang-css";
+
+import { formatCode } from "@/lib/format";
 
 /**
  * The studio code editor: CodeMirror 6 wearing the app's tokens.
  * Chrome is grayscale (vars); syntax highlighting stays restrained —
  * three muted hues, everything else neutral.
+ *
+ * Formatting: Shift+Alt+F anywhere, the workspace toolbar button, and
+ * automatically after a paste.
  */
 const studioTheme = createTheme({
   theme: "dark",
@@ -48,20 +60,88 @@ function languageFor(path: string) {
   return [];
 }
 
+export interface CodeEditorHandle {
+  format: () => void;
+}
+
 export function CodeEditor({
   path,
   value,
   onChange,
+  ref,
 }: {
   path: string;
   value: string;
   onChange: (value: string) => void;
+  ref?: Ref<CodeEditorHandle>;
 }) {
-  const extensions = useMemo(() => languageFor(path), [path]);
+  const codeMirrorRef = useRef<ReactCodeMirrorRef>(null);
+  const formatRef = useRef<() => void>(() => {});
+
+  const format = useCallback(async () => {
+    const view = codeMirrorRef.current?.view;
+    if (!view) return;
+
+    const current = view.state.doc.toString();
+    const formatted = await formatCode(current, path);
+    if (formatted === null || formatted === current) return;
+
+    // Preserve the cursor's line/column across the full-document replace.
+    const head = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(head);
+    const column = head - line.from;
+
+    view.dispatch({
+      changes: { from: 0, to: current.length, insert: formatted },
+    });
+    const targetLine = view.state.doc.line(
+      Math.min(line.number, view.state.doc.lines)
+    );
+    view.dispatch({
+      selection: {
+        anchor: Math.min(targetLine.from + column, targetLine.to),
+      },
+    });
+    view.focus();
+  }, [path]);
+
+  formatRef.current = () => {
+    void format();
+  };
+
+  useImperativeHandle(ref, () => ({ format: () => formatRef.current() }), []);
+
+  const formattingExtensions = useMemo(
+    () => [
+      // Format automatically after a paste lands in the document.
+      EditorView.domEventHandlers({
+        paste: () => {
+          window.setTimeout(() => formatRef.current(), 0);
+          return false;
+        },
+      }),
+      keymap.of([
+        {
+          key: "Shift-Alt-f",
+          run: () => {
+            formatRef.current();
+            return true;
+          },
+        },
+      ]),
+    ],
+    []
+  );
+
+  const extensions = useMemo(
+    () => [...languageFor(path), ...formattingExtensions],
+    [path, formattingExtensions]
+  );
 
   return (
     <div className="h-full min-h-0 overflow-hidden">
       <CodeMirror
+        ref={codeMirrorRef}
         value={value}
         onChange={onChange}
         theme={studioTheme}

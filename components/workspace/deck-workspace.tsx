@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  AlignLeftIcon,
   ArrowLeftIcon,
   FilePlusIcon,
   ImagePlusIcon,
@@ -30,7 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "cn";
-import { CodeEditor } from "./code-editor";
+import { CodeEditor, type CodeEditorHandle } from "./code-editor";
 import { DeckPreview } from "./deck-preview";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileTree } from "./file-tree";
@@ -103,6 +104,7 @@ export function DeckWorkspace({
   }, [files]);
 
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<CodeEditorHandle>(null);
 
   async function uploadMedia(uploads: FileList | File[]) {
     for (const file of Array.from(uploads)) {
@@ -470,8 +472,8 @@ export function DeckWorkspace({
         <section className="flex min-w-0 flex-1 flex-col">
           {openPaths.length > 0 ? (
             <>
-              <div className="h-10 shrink-0 border-b border-border">
-                <ScrollArea orientation="horizontal" className="h-full">
+              <div className="flex h-10 shrink-0 items-stretch border-b border-border">
+                <ScrollArea orientation="horizontal" className="h-full min-w-0 flex-1">
                   <div className="flex h-full w-max min-w-full items-stretch">
                     {openPaths.map((path) => {
                   const isActive = path === activePath;
@@ -514,11 +516,23 @@ export function DeckWorkspace({
                     })}
                   </div>
                 </ScrollArea>
+                <div className="flex shrink-0 items-center border-l border-border px-1.5">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Format file (Shift+Alt+F)"
+                    onClick={() => editorRef.current?.format()}
+                    disabled={!activePath}
+                  >
+                    <AlignLeftIcon />
+                  </Button>
+                </div>
               </div>
               <div className="min-h-0 flex-1">
                 {activePath && files[activePath] !== undefined ? (
                   <CodeEditor
                     key={activePath}
+                    ref={editorRef}
                     path={activePath}
                     value={files[activePath]}
                     onChange={handleEditorChange}

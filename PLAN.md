@@ -537,6 +537,12 @@ folder operations.
   runtime's `deck:load` message
 - Starter template's layout reads its footer title from
   `deck.config.ts`
+- Formatting: Prettier standalone loaded lazily in the workspace —
+  **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
+  format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors
+  are left untouched
+- Verified live: a messy one-liner formatted to a proper 5-line file and
+  autosaved (SAVED); Prettier chunks loaded on demand, zero console errors
 - Verified live: upload → listed → slide using `media("test.png")`
   rendered the image in the preview; switching config to 4:3 + paper +
   Fraunces produced a 960×720 canvas, paper palette, and Fraunces

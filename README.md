@@ -71,4 +71,11 @@ preview/presenter frame. Deck theme variables work there
 }
 ```
 
+### Formatting
+
+Prettier runs in the browser: **Shift+Alt+F**, the format button in the
+tab strip, or automatically after a paste. Supports TSX/TS/JS and CSS
+with the studio's code style (2 spaces, double quotes, semicolons,
+trailing commas). Invalid syntax is left untouched.
+
 Details, architecture, and the phase-by-phase roadmap: **[PLAN.md](./PLAN.md)**.
