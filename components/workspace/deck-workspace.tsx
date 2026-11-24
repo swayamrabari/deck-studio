@@ -7,12 +7,17 @@ import {
   ArrowLeftIcon,
   FilePlusIcon,
   ImagePlusIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  PanelRightCloseIcon,
+  PanelRightOpenIcon,
   PlayIcon,
   PlusIcon,
   PresentationIcon,
   RotateCcwIcon,
   XIcon,
 } from "lucide-react";
+import { usePanelRef } from "react-resizable-panels";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -160,6 +165,26 @@ export function DeckWorkspace({
 
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<CodeEditorHandle>(null);
+  const leftPanelRef = usePanelRef();
+  const rightPanelRef = usePanelRef();
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+
+  function togglePane(
+    ref: typeof leftPanelRef,
+    collapsed: boolean,
+    setCollapsed: (value: boolean) => void
+  ) {
+    const panel = ref.current;
+    if (!panel) return;
+    if (panel.isCollapsed() || collapsed) {
+      panel.expand();
+      setCollapsed(false);
+    } else {
+      panel.collapse();
+      setCollapsed(true);
+    }
+  }
 
   async function uploadMedia(uploads: FileList | File[]) {
     for (const file of Array.from(uploads)) {
@@ -543,6 +568,30 @@ export function DeckWorkspace({
           {error ? (
             <span className="max-w-64 truncate text-xs text-destructive">{error}</span>
           ) : null}
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={leftCollapsed ? "Show file tree" : "Hide file tree"}
+              title={leftCollapsed ? "Show file tree" : "Hide file tree"}
+              onClick={() =>
+                togglePane(leftPanelRef, leftCollapsed, setLeftCollapsed)
+              }
+            >
+              {leftCollapsed ? <PanelLeftOpenIcon /> : <PanelLeftCloseIcon />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={rightCollapsed ? "Show preview" : "Hide preview"}
+              title={rightCollapsed ? "Show preview" : "Hide preview"}
+              onClick={() =>
+                togglePane(rightPanelRef, rightCollapsed, setRightCollapsed)
+              }
+            >
+              {rightCollapsed ? <PanelRightOpenIcon /> : <PanelRightCloseIcon />}
+            </Button>
+          </div>
           <span className="flex items-center gap-1.5 font-ui-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             <span
               className={cn(
@@ -572,6 +621,12 @@ export function DeckWorkspace({
           minSize={180}
           maxSize={360}
           groupResizeBehavior="preserve-pixel-size"
+          collapsible
+          collapsedSize={0}
+          panelRef={leftPanelRef}
+          onResize={() =>
+            setLeftCollapsed(leftPanelRef.current?.isCollapsed() ?? false)
+          }
         >
           <aside className="flex h-full min-h-0 flex-col">
           <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
@@ -749,6 +804,12 @@ export function DeckWorkspace({
           minSize={240}
           maxSize={640}
           groupResizeBehavior="preserve-pixel-size"
+          collapsible
+          collapsedSize={0}
+          panelRef={rightPanelRef}
+          onResize={() =>
+            setRightCollapsed(rightPanelRef.current?.isCollapsed() ?? false)
+          }
         >
           <aside className="flex h-full min-h-0 flex-col">
             <div className="flex h-10 shrink-0 items-center border-b border-border px-3">

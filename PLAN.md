@@ -387,7 +387,8 @@ Three panes, one studio:
 - **Resizable panes**: shadcn `Resizable` (react-resizable-panels v4).
   Drag the divider, focus it and use ←/→, or double-click to reset.
   Tree and preview keep pixel widths when the window resizes; every pane
-  has sensible min/max bounds.
+  has sensible min/max bounds. Header controls collapse either side pane
+  to zero and restore it, giving the editor the full width.
 
 The storage API lives at `/api/decks/[id]/files` (GET/POST/PUT/PATCH/
 DELETE) with ownership checks, `deck/` path validation, and prefix-based

@@ -24,7 +24,7 @@ npm run dev
 | `/` | Landing (redirects to your decks when signed in) | ✅ |
 | `/login` · `/signup` | Token auth (email + password) | ✅ |
 | `/decks` | Dashboard — your decks, New deck (starter template) | ✅ |
-| `/decks/[id]/edit` | Workspace — file tree, media, CodeMirror 6, autosave, **live preview**, **resizable panes**, named new slides + slide-folder rename | ✅ |
+| `/decks/[id]/edit` | Workspace — file tree, media, CodeMirror 6, autosave, **live preview**, **resizable/collapsible panes**, named new slides + slide-folder rename | ✅ |
 | `/decks/[id]/present` | Hosted presenter — keyboard, fullscreen, `?s=`/`?st=` deep links, progress, fades, reveal steps | ✅ |
 | `/style` | Design system specimen — tokens, primitives, all 14 fonts | ✅ |
 | `/present` | Local presenter stub (transitional) | ✅ stub |
