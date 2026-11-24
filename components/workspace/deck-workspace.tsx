@@ -11,6 +11,7 @@ import {
   PanelLeftOpenIcon,
   PanelRightCloseIcon,
   PanelRightOpenIcon,
+  PencilIcon,
   PlayIcon,
   PlusIcon,
   PresentationIcon,
@@ -112,6 +113,7 @@ type WorkspaceDialog =
   | { kind: "start-fresh" }
   | { kind: "new-file" }
   | { kind: "rename"; path: string; folder: boolean }
+  | { kind: "rename-deck" }
   | { kind: "delete"; path: string; folder: boolean }
   | { kind: "media"; name: string }
   | null;
@@ -138,6 +140,7 @@ export function DeckWorkspace({
   initialMedia: DeckMediaItem[];
 }) {
   const [files, setFiles] = useState<Record<string, string>>(initialFiles);
+  const [deckTitle, setDeckTitle] = useState(title);
   const [savedFiles, setSavedFiles] = useState<Record<string, string>>(initialFiles);
   const [mediaList, setMediaList] = useState<DeckMediaItem[]>(initialMedia);
   const [openPaths, setOpenPaths] = useState<string[]>(() => {
@@ -422,6 +425,46 @@ export function DeckWorkspace({
     }
   }
 
+  async function renameDeck(nextTitle: string) {
+    const trimmed = nextTitle.trim();
+    if (!trimmed) {
+      setError("Project name is required.");
+      return;
+    }
+
+    setPending(true);
+    try {
+      const res = await fetch(`/api/decks/${deckId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        title?: string;
+        config?: string;
+        error?: string;
+      } | null;
+      if (!res.ok) {
+        setError(data?.error ?? "Rename failed.");
+        return;
+      }
+
+      setDeckTitle(data?.title ?? trimmed);
+      if (typeof data?.config === "string") {
+        const configPath = "deck/deck.config.ts";
+        setFiles((prev) => ({ ...prev, [configPath]: data.config as string }));
+        setSavedFiles((prev) => ({
+          ...prev,
+          [configPath]: data.config as string,
+        }));
+      }
+      setDialog(null);
+      setError(null);
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function renamePath(from: string, to: string) {
     if (from === to) {
       setDialog(null);
@@ -552,6 +595,7 @@ export function DeckWorkspace({
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href="/decks"
+            prefetch={false}
             aria-label="Back to decks"
             className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
           >
@@ -561,7 +605,23 @@ export function DeckWorkspace({
             <p className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               Workspace
             </p>
-            <h1 className="truncate text-sm leading-tight font-medium">{title}</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="truncate text-sm leading-tight font-medium">
+                {deckTitle}
+              </h1>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Rename project"
+                title="Rename project"
+                onClick={() => {
+                  setDraftValue(deckTitle);
+                  setDialog({ kind: "rename-deck" });
+                }}
+              >
+                <PencilIcon className="size-3" />
+              </Button>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -835,6 +895,54 @@ export function DeckWorkspace({
           event.target.value = "";
         }}
       />
+
+      <Dialog
+        open={dialog?.kind === "rename-deck"}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename project</DialogTitle>
+            <DialogDescription>
+              Updates the project name and the title in deck.config.ts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="project-name">Project name</Label>
+            <Input
+              id="project-name"
+              value={draftValue}
+              autoFocus
+              className="text-sm"
+              onChange={(event) => setDraftValue(event.target.value)}
+              onFocus={(event) => event.target.select()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !pending) {
+                  event.preventDefault();
+                  void renameDeck(draftValue);
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialog(null)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void renameDeck(draftValue)}
+              disabled={pending}
+            >
+              {pending ? "Renaming…" : "Rename project"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={dialog?.kind === "start-fresh"}

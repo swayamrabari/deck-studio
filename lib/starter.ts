@@ -15,6 +15,15 @@ import { deckFiles, decks } from "@/db/schema";
  */
 
 export const STARTER_TITLE = "My presentation";
+export const DECK_CONFIG_PATH = "deck/deck.config.ts";
+
+/** Writes a new title into a deck config source without reformatting it. */
+export function applyDeckTitle(content: string, title: string): string {
+  return content.replace(
+    /\btitle:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/,
+    () => `title: ${JSON.stringify(title)}`
+  );
+}
 
 /** The deck's single styles file (part of the deck contract). */
 export const STYLES_PATH = "deck/styles.css";
@@ -54,20 +63,25 @@ export async function readStarterFiles(): Promise<StarterFiles> {
 
 /** Creates a new deck owned by `userId`, seeded from the starter template. */
 export async function createDeckFromStarter(
-  userId: string
+  userId: string,
+  requestedTitle?: string
 ): Promise<{ id: string; title: string }> {
+  const title = requestedTitle?.trim().slice(0, 120) || STARTER_TITLE;
   const id = randomUUID();
   const now = new Date();
 
   await db.insert(decks).values({
     id,
     ownerId: userId,
-    title: STARTER_TITLE,
+    title,
     createdAt: now,
     updatedAt: now,
   });
 
   const files = await readStarterFiles();
+  if (files[DECK_CONFIG_PATH]) {
+    files[DECK_CONFIG_PATH] = applyDeckTitle(files[DECK_CONFIG_PATH], title);
+  }
   const rows = Object.entries(files).map(([filePath, content]) => ({
     id: randomUUID(),
     deckId: id,
@@ -79,7 +93,7 @@ export async function createDeckFromStarter(
     await db.insert(deckFiles).values(rows);
   }
 
-  return { id, title: STARTER_TITLE };
+  return { id, title };
 }
 
 /**

@@ -581,6 +581,11 @@ folder operations.
   layout, styles, media, and components. New slides are named in a
   dialog and slide folders expose a rename action that preserves the
   number prefix
+- **Project naming**: the New deck dialog asks for a name, and decks can
+  be renamed from the dashboard card or the workspace header. Renames
+  update both the database and `deck.config.ts`; the decks API
+  revalidates the dashboard so new/renamed projects appear on return
+  without a manual refresh
 - Formatting: Prettier standalone loaded lazily in the workspace —
   **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
   format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors
