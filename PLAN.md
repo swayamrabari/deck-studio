@@ -386,6 +386,10 @@ Three panes, one studio:
   tab, header save status.
 - **Right — live preview**: placeholder canvas until the Phase 5
   runtime lands.
+- **Resizable panes**: shadcn `Resizable` (react-resizable-panels v4).
+  Drag the divider, focus it and use ←/→, or double-click to reset.
+  Tree and preview keep pixel widths when the window resizes; every pane
+  has sensible min/max bounds.
 
 The storage API lives at `/api/decks/[id]/files` (GET/POST/PUT/PATCH/
 DELETE) with ownership checks, `deck/` path validation, and prefix-based
@@ -569,6 +573,15 @@ folder operations.
   are left untouched
 - Verified live: a messy one-liner formatted to a proper 5-line file and
   autosaved (SAVED); Prettier chunks loaded on demand, zero console errors
+- **Resizable workspace panes** via shadcn `Resizable`
+  (`react-resizable-panels` v4): pointer drag, keyboard arrows on the
+  focused separator, double-click reset, pixel min/max bounds, and
+  side panes keep their widths when the window resizes
+- Verified live: mouse drag turned `240/320/294` into `294/320/240`
+  (constraints respected), keyboard arrows moved the divider, and
+  double-click restored the defaults; separators report
+  `role=separator`, `aria-orientation`, `aria-valuenow`, and an
+  `ew-resize` cursor
 - Verified live: upload → listed → slide using `media("test.png")`
   rendered the image in the preview; switching config to 4:3 + paper +
   Fraunces produced a 960×720 canvas, paper palette, and Fraunces

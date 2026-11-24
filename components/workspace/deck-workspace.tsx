@@ -30,6 +30,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { cn } from "cn";
 import { CodeEditor, type CodeEditorHandle } from "./code-editor";
 import { DeckPreview } from "./deck-preview";
@@ -410,8 +415,14 @@ export function DeckWorkspace({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-60 shrink-0 flex-col border-r border-border">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+        <ResizablePanel
+          defaultSize={240}
+          minSize={180}
+          maxSize={360}
+          groupResizeBehavior="preserve-pixel-size"
+        >
+          <aside className="flex h-full min-h-0 flex-col">
           <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
             <span className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               deck/
@@ -467,9 +478,13 @@ export function DeckWorkspace({
           <div className="shrink-0 border-t border-border px-3 py-2 font-ui-mono text-[10px] text-muted-foreground">
             {Object.keys(files).length} files
           </div>
-        </aside>
+          </aside>
+        </ResizablePanel>
 
-        <section className="flex min-w-0 flex-1 flex-col">
+        <ResizableHandle withHandle />
+
+        <ResizablePanel defaultSize="52%" minSize={320} className="min-w-0">
+          <section className="flex h-full min-h-0 min-w-0 flex-col">
           {openPaths.length > 0 ? (
             <>
               <div className="flex h-10 shrink-0 items-stretch border-b border-border">
@@ -553,17 +568,27 @@ export function DeckWorkspace({
               </p>
             </div>
           )}
-        </section>
+          </section>
+        </ResizablePanel>
 
-        <aside className="flex w-[320px] shrink-0 flex-col border-l border-border xl:w-[400px]">
-          <div className="flex h-10 shrink-0 items-center border-b border-border px-3">
-            <span className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Preview
-            </span>
-          </div>
-          <DeckPreview deckId={deckId} files={files} activePath={activePath} />
-        </aside>
-      </div>
+        <ResizableHandle withHandle />
+
+        <ResizablePanel
+          defaultSize={360}
+          minSize={240}
+          maxSize={640}
+          groupResizeBehavior="preserve-pixel-size"
+        >
+          <aside className="flex h-full min-h-0 flex-col">
+            <div className="flex h-10 shrink-0 items-center border-b border-border px-3">
+              <span className="font-ui-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Preview
+              </span>
+            </div>
+            <DeckPreview deckId={deckId} files={files} activePath={activePath} />
+          </aside>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       <input
         ref={mediaInputRef}
