@@ -335,6 +335,7 @@ editor saves ──► DB (deck_files)
                          · engine modules provided by the frame:
                            react, react-dom/client, @/components/slides,
                            @/components/ui, @/lib/canvas, …
+                         · lucide-react (lazily imported on first use)
         [3] RENDER       same-origin sandboxed iframe (runtime harness
                          route): the engine mounts once inside the frame,
                          executes the deck modules, wraps each slide in
@@ -509,6 +510,10 @@ folder operations.
     extra utilities inside the frame
 - "New slide" stub now imports `Statement`, teaching the library from
   the first click
+- `lucide-react` is available to deck code (any named icon import) — the
+  frame injects it into the virtual module map as a **lazy chunk**, loaded
+  only for decks that import it; icons inherit `currentColor`, so
+  `text-deck-accent` / `size-*` utilities style them
 - Verified live through the runtime: a slide importing all primitives
   rendered every component (table DOM confirmed: 2 headers, 2 rows),
   zero console errors

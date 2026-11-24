@@ -27,6 +27,25 @@ import type {
  * back to the host via postMessage.
  */
 
+/**
+ * lucide-react is huge (~2,000 icons), so it is a separate lazy chunk
+ * loaded the first time a deck actually imports it. The promise is cached
+ * for the lifetime of the frame.
+ */
+let lucideModulePromise: Promise<typeof import("lucide-react")> | null = null;
+
+function loadLucideModule(): Promise<typeof import("lucide-react")> {
+  lucideModulePromise ??= import("lucide-react");
+  return lucideModulePromise;
+}
+
+function deckUsesLucide(files: Record<string, string>): boolean {
+  return Object.values(files).some(
+    (source) =>
+      source.includes('"lucide-react"') || source.includes("'lucide-react'")
+  );
+}
+
 class SlideErrorBoundary extends Component<
   { children: ReactNode; onError: (message: string) => void },
   { failed: boolean }
@@ -56,6 +75,9 @@ export default function RuntimeFramePage() {
   const [version, setVersion] = useState(0);
   const filesJsonRef = useRef<string>("");
   const stepCountRef = useRef(0);
+  // Guards against out-of-order compiles now that `deck:load` can await a
+  // lazy module (lucide) before compiling.
+  const loadSeqRef = useRef(0);
 
   // Tailwind's browser build touches `document` — client-only import.
   useEffect(() => {
@@ -67,7 +89,7 @@ export default function RuntimeFramePage() {
       window.parent.postMessage(message, window.location.origin);
     }
 
-    function onMessage(event: MessageEvent) {
+    async function onMessage(event: MessageEvent) {
       if (event.source !== window.parent) return;
       const message = event.data as RuntimeInMessage | null;
       if (!message || typeof message !== "object") return;
@@ -100,9 +122,17 @@ export default function RuntimeFramePage() {
         return;
       }
       filesJsonRef.current = filesJson;
+      const loadSeq = ++loadSeqRef.current;
 
       try {
-        const compiled = compileDeck(message.files);
+        // Lazily fetch lucide-react only for decks that import it, then
+        // expose it to the deck's virtual module loader.
+        const hostModules = deckUsesLucide(message.files)
+          ? { "lucide-react": await loadLucideModule() }
+          : {};
+        if (loadSeq !== loadSeqRef.current) return;
+
+        const compiled = compileDeck(message.files, hostModules);
         setDeck(compiled);
         setError(null);
         setVersion((current) => current + 1);

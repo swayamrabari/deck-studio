@@ -62,6 +62,20 @@ import { FitImage, media } from "@/components/slides";
 <FitImage src={media("cover.jpg")} caption="Uploaded image" />;
 ```
 
+### Icons
+
+Lucide icons work directly in slide code — `lucide-react` is exposed to
+the deck runtime and loaded on demand the first time a deck imports it:
+
+```tsx
+import { ArrowRight, Rocket } from "lucide-react";
+
+<Rocket className="size-10 text-deck-accent" />;
+```
+
+Decks that don't import icons never download the library. Icons inherit
+`currentColor` and accept normal `size-*`, `stroke-*`, and color classes.
+
 ### Styles
 
 `deck/styles.css` holds reusable plain-CSS classes, injected into the

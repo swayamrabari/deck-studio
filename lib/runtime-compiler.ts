@@ -101,8 +101,18 @@ function compileModule(path: string, source: string): string {
   return result?.code ?? "";
 }
 
-/** Compiles the whole deck; throws a readable error on failure. */
-export function compileDeck(files: Record<string, string>): CompiledDeck {
+/**
+ * Compiles the whole deck; throws a readable error on failure.
+ *
+ * `hostModules` lets the frame inject extra virtual modules that are
+ * expensive to load (lazily imported icon libraries, for example) only
+ * when the deck actually imports them.
+ */
+export function compileDeck(
+  files: Record<string, string>,
+  hostModules: Record<string, unknown> = {}
+): CompiledDeck {
+  const modules = { ...ENGINE_MODULES, ...hostModules };
   const slidePaths = slideFilePaths(files);
   if (slidePaths.length === 0) {
     throw new Error(
@@ -113,7 +123,7 @@ export function compileDeck(files: Record<string, string>): CompiledDeck {
   const cache = new Map<string, unknown>();
 
   function resolveSpecifier(specifier: string, fromPath: string): string {
-    if (ENGINE_MODULES[specifier]) return specifier;
+    if (modules[specifier]) return specifier;
 
     let target: string;
     if (specifier.startsWith("@/")) {
@@ -142,7 +152,7 @@ export function compileDeck(files: Record<string, string>): CompiledDeck {
   }
 
   function requireModule(id: string): unknown {
-    if (ENGINE_MODULES[id]) return ENGINE_MODULES[id];
+    if (modules[id]) return modules[id];
     if (cache.has(id)) return cache.get(id);
 
     const source = files[id];
