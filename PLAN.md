@@ -347,6 +347,13 @@ editor saves ──► DB (deck_files)
 
 - **Zero server compute per edit** — transpile, resolve, and render all
   happen in the user's browser.
+- **CSS isolation** — the runtime lives in its **own root layout**
+  (`app/(runtime)`): no app `globals.css`, no shadcn tokens, no AppShell.
+  The frame compiles its own Tailwind with the browser build (utilities
+  scanned from the deck's DOM, deck palette registered via `@theme`) over
+  a minimal reset. App chrome and deck CSS share no stylesheet at all —
+  nothing can overlap in either direction (the iframe also keeps deck
+  styles from touching the app).
 - The editor preview and the presenter drive the **same frame**; present
   mode is the frame at full viewport with keyboard control.
 - **Safety**: user code executes only inside the frame — never on the host
@@ -545,6 +552,12 @@ folder operations.
   resolution; `deck/styles.css` is guaranteed per deck (seeded or
   backfilled) and `:root` overrides there rebrand the deck's colors
   (fonts stay config-driven); the workspace `+` menu is wider
+- **Full CSS isolation**: route-group root layouts split the app
+  (`(app)` with globals) from the runtime (`(runtime)`, no app CSS). The
+  frame compiles its own Tailwind via the browser build with the deck
+  palette in `@theme`; verified the frame has none of the app's tokens
+  (`--background` absent) while app pages keep them, and deck brand
+  overrides still win inside the frame
 - Formatting: Prettier standalone loaded lazily in the workspace —
   **Shift+Alt+F**, a toolbar button in the tab strip, and automatic
   format-on-paste; TSX/TS/JS/CSS with the studio style; syntax errors

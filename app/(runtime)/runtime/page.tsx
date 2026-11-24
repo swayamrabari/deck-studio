@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 
@@ -150,38 +149,42 @@ export default function RuntimeFramePage() {
   const canvasWidth = config?.aspect === "4:3" ? 960 : 1280;
   const canvasHeight = 720;
 
-  const themeCss = useMemo(() => {
+  const frameCss = useMemo(() => {
     const theme = DECK_THEMES[config?.theme ?? "midnight"] ?? DECK_THEMES.midnight;
-    // Colors are declared at :root — BEFORE the deck's own stylesheet, so
-    // `deck/styles.css` can override any of them for brand customization.
-    return `:root {
+    // The frame is CSS-independent from the app: Tailwind's browser build
+    // generates utilities from the deck's DOM, and the deck palette is
+    // registered here so `bg-deck-bg` etc. only exist for deck content.
+    return `@theme {
   --color-deck-bg: ${theme.bg};
   --color-deck-surface: ${theme.surface};
   --color-deck-fg: ${theme.fg};
   --color-deck-muted: ${theme.muted};
   --color-deck-accent: ${theme.accent};
+  --font-display: var(--deck-font-display);
+  --font-body: var(--deck-font-body);
+  --font-mono: var(--deck-font-mono);
 }`;
   }, [config]);
 
-  // Fonts must be inline on the frame root: the engine's own html element
-  // sets these vars inline, so a :root stylesheet rule would lose.
-  const fontVars = useMemo<CSSProperties>(() => {
+  // Font slots live at :root in their own stylesheet; `deck/styles.css`
+  // loads after both, so brand overrides still win.
+  const fontCss = useMemo(() => {
     const display = fontVar(config?.fonts.display, "--font-geist-sans");
     const body = fontVar(config?.fonts.body, "--font-geist-sans");
     const mono = fontVar(config?.fonts.mono, "--font-geist-mono");
-    return {
-      "--deck-font-display": display,
-      "--deck-font-body": body,
-      "--deck-font-mono": mono,
-      "--font-display": display,
-      "--font-body": body,
-      "--font-mono": mono,
-    } as CSSProperties;
+    return `:root {
+  --deck-font-display: ${display};
+  --deck-font-body: ${body};
+  --deck-font-mono: ${mono};
+}`;
   }, [config]);
 
   return (
-    <div className="relative h-dvh w-full" style={fontVars}>
-      <style data-deck-theme>{themeCss}</style>
+    <div className="relative h-dvh w-full">
+      <style type="text/tailwindcss" data-deck-theme>
+        {frameCss}
+      </style>
+      <style data-deck-fonts>{fontCss}</style>
       {deck?.styles ? (
         <style data-deck-styles>{deck.styles}</style>
       ) : null}
@@ -222,7 +225,7 @@ export default function RuntimeFramePage() {
       </SlideCanvas>
       {error ? (
         <div className="absolute inset-x-0 bottom-0 p-3">
-          <p className="max-h-32 overflow-auto rounded-md border border-destructive/40 bg-background/95 p-2 font-ui-mono text-[10px] leading-relaxed whitespace-pre-wrap text-destructive">
+          <p className="max-h-32 overflow-auto rounded-md border border-white/20 bg-black/90 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-red-400">
             {error}
           </p>
         </div>

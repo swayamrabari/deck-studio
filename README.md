@@ -37,6 +37,11 @@ The platform stores this structure in the database; the browser editor
 shows it as a file tree and a sandboxed in-browser runtime compiles and
 renders it (transpile → virtual modules → iframe).
 
+**Full CSS isolation:** the runtime runs in its own root layout with
+**none of the app's CSS** — deck Tailwind is compiled inside the frame
+and `styles.css` is injected there, so app chrome and deck styles share
+no stylesheet and can never overlap.
+
 ### Config
 
 `deck/deck.config.ts` drives the runtime: `aspect` (`16:9` → 1280×720,
