@@ -1,7 +1,7 @@
 {
   "schedules": {
     "db-ping": {
-      "cron": "*/10 * * * *",
+      "schedule": "*/10 * * * *",
       "path": "/api/health",
       "requestMethod": "GET"
     }
