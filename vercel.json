@@ -1,7 +1,8 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "schedules": {
     "db-ping": {
-      "schedule": "*/10 * * * *",
+      "schedule": "0 */12 * * *",
       "path": "/api/health",
       "requestMethod": "GET"
     }
