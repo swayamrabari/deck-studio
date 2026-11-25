@@ -23,7 +23,7 @@ CANVAS = 32          # SVG viewBox size
 CORNER_RADIUS = 7    # rounded-square background radius
 PADDING = 4          # space around the 24x24 Lucide glyph
 OFFSET_X = 0         # nudge the glyph left(-) / right(+)
-OFFSET_Y = 2         # nudge the glyph up(-) / down(+)
+OFFSET_Y = 1         # nudge the glyph up(-) / down(+)
 ICON_SCALE = 1.0     # 1.0 = 24 units, smaller = more breathing room
 STROKE = 2           # glyph stroke width in 32-unit space
 BACKGROUND = "#ffffff"
